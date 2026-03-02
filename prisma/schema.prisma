@@ -23,6 +23,12 @@ model Task {
   title       String
   owner       String?
   status      TaskStatus @default(NOT_STARTED)
+
+  // extra fields (imported from spreadsheet)
+  frequency   String?
+  estHoursPm  String?
+  dependency  String?
+
   dueAt       DateTime?
   etaAt       DateTime?
   blocker     String?

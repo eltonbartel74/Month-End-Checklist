@@ -9,6 +9,9 @@ type Task = {
   title: string;
   owner: string | null;
   status: TaskStatus;
+  frequency: string | null;
+  estHoursPm: string | null;
+  dependency: string | null;
   dueAt: string | null;
   etaAt: string | null;
   blocker: string | null;
@@ -135,6 +138,9 @@ export default function Home() {
                 <th className="py-2 pr-3">Task</th>
                 <th className="py-2 pr-3">Owner</th>
                 <th className="py-2 pr-3">Status</th>
+                <th className="py-2 pr-3">Frequency</th>
+                <th className="py-2 pr-3">Hrs (p/m)</th>
+                <th className="py-2 pr-3">Dependency</th>
                 <th className="py-2 pr-3">Due</th>
                 <th className="py-2 pr-3">ETA</th>
                 <th className="py-2 pr-3">Blocker</th>
@@ -143,13 +149,13 @@ export default function Home() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="py-3 text-white/70" colSpan={6}>
+                  <td className="py-3 text-white/70" colSpan={9}>
                     Loading…
                   </td>
                 </tr>
               ) : tasks.length === 0 ? (
                 <tr>
-                  <td className="py-3 text-white/70" colSpan={6}>
+                  <td className="py-3 text-white/70" colSpan={9}>
                     No tasks yet.
                   </td>
                 </tr>
@@ -196,6 +202,9 @@ export default function Home() {
                         onChange={(v) => void updateTask(t.id, { status: v })}
                       />
                     </td>
+                    <td className="py-2 pr-3 text-white/80">{t.frequency ?? "–"}</td>
+                    <td className="py-2 pr-3 text-white/80">{t.estHoursPm ?? "–"}</td>
+                    <td className="py-2 pr-3 text-white/80">{t.dependency ?? "–"}</td>
                     <td className="py-2 pr-3">
                       <input
                         type="date"

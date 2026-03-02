@@ -18,6 +18,9 @@ export async function POST(req: Request) {
       | "WAITING"
       | "BLOCKED"
       | "DONE";
+    frequency?: string;
+    estHoursPm?: string;
+    dependency?: string;
     dueAt?: string;
     etaAt?: string;
     blocker?: string;
@@ -33,6 +36,9 @@ export async function POST(req: Request) {
       title: body.title.trim(),
       owner: body.owner?.trim() || null,
       status: body.status ?? "NOT_STARTED",
+      frequency: body.frequency?.trim() || null,
+      estHoursPm: body.estHoursPm?.trim() || null,
+      dependency: body.dependency?.trim() || null,
       dueAt: body.dueAt ? new Date(body.dueAt) : null,
       etaAt: body.etaAt ? new Date(body.etaAt) : null,
       blocker: body.blocker?.trim() || null,

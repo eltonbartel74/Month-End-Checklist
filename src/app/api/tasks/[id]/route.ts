@@ -16,6 +16,9 @@ export async function PATCH(
       | "WAITING"
       | "BLOCKED"
       | "DONE";
+    frequency?: string | null;
+    estHoursPm?: string | null;
+    dependency?: string | null;
     dueAt?: string | null;
     etaAt?: string | null;
     blocker?: string | null;
@@ -28,6 +31,12 @@ export async function PATCH(
       title: body.title?.trim(),
       owner: body.owner === null ? null : body.owner?.trim(),
       status: body.status,
+      frequency:
+        body.frequency === null ? null : body.frequency?.trim(),
+      estHoursPm:
+        body.estHoursPm === null ? null : body.estHoursPm?.trim(),
+      dependency:
+        body.dependency === null ? null : body.dependency?.trim(),
       dueAt:
         body.dueAt === null
           ? null
