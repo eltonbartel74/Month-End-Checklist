@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL")
+}
+
+enum TaskStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  WAITING
+  BLOCKED
+  DONE
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  period      String?    // e.g. "2026-02" (optional for now)
+  title       String
+  owner       String?
+  status      TaskStatus @default(NOT_STARTED)
+  dueAt       DateTime?
+  etaAt       DateTime?
+  blocker     String?
+  notes       String?
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
