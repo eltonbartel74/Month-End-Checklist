@@ -420,11 +420,7 @@ function StatusChips({
       label: "Waiting",
       tone: "border-sky-400/40 text-sky-200 hover:bg-sky-400/10",
     },
-    {
-      v: "BLOCKED",
-      label: "Blocked",
-      tone: "border-red-400/40 text-red-200 hover:bg-red-400/10",
-    },
+    // BLOCKED removed
     {
       v: "DONE",
       label: "Done",
