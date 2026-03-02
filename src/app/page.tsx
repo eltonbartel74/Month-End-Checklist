@@ -220,10 +220,10 @@ export default function Home() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Month End Close Cockpit
+            Finance Task Hub
           </h1>
           <p className="mt-1 text-white/80">
-            Quick status, overdue tasks, and ETAs — without chasing people.
+            Visibility on finance tasks, owners, and due dates — without chasing people.
           </p>
         </div>
 
