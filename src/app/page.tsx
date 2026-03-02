@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { uploadWorkingPaper } from "@/app/uploadWorkingPaper";
 
 type TaskStatus = "NOT_STARTED" | "IN_PROGRESS" | "WAITING" | "BLOCKED" | "DONE";
 
@@ -25,6 +26,8 @@ type Task = {
   blocker: string | null;
   notes: string | null;
   updatedAt: string;
+
+  _count?: { attachments: number };
 };
 
 export default function Home() {
@@ -163,11 +166,18 @@ export default function Home() {
   }
 
   async function updateTask(id: string, patch: Partial<Task>) {
-    await fetch(`/api/tasks/${id}`, {
+    const res = await fetch(`/api/tasks/${id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(patch),
     });
+
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      setError(data.error || `Update failed (${res.status})`);
+      return;
+    }
+
     await refresh();
   }
 
@@ -305,6 +315,7 @@ export default function Home() {
                 <th className="py-2 pr-3">Task</th>
                 <th className="py-2 pr-3">Owner</th>
                 <th className="py-2 pr-3">Status</th>
+                <th className="py-2 pr-3">WP</th>
                 <th className="py-2 pr-3">Hrs</th>
                 <th className="py-2 pr-3">Dependency</th>
                 <th className="py-2 pr-3">Due</th>
@@ -315,18 +326,31 @@ export default function Home() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="py-3 text-white/70" colSpan={8}>
+                  <td className="py-3 text-white/70" colSpan={9}>
                     Loading…
                   </td>
                 </tr>
               ) : tasks.length === 0 ? (
                 <tr>
-                  <td className="py-3 text-white/70" colSpan={8}>
+                  <td className="py-3 text-white/70" colSpan={9}>
                     No tasks yet.
                   </td>
                 </tr>
               ) : (
-                <GroupedRows tasks={tasks} updateTask={updateTask} setTasks={setTasks} />
+                <GroupedRows
+                  tasks={tasks}
+                  updateTask={updateTask}
+                  setTasks={setTasks}
+                  onUpload={async (taskId, file) => {
+                    try {
+                      setError(null);
+                      await uploadWorkingPaper(taskId, file);
+                      await refresh();
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : "Upload failed");
+                    }
+                  }}
+                />
               )}
             </tbody>
           </table>
@@ -507,10 +531,12 @@ function GroupedRows({
   tasks,
   updateTask,
   setTasks,
+  onUpload,
 }: {
   tasks: Task[];
   updateTask: (id: string, patch: Partial<Task>) => Promise<void>;
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  onUpload: (taskId: string, file: File) => Promise<void>;
 }) {
   const daily = tasks.filter((t) => (t.frequency ?? "").toLowerCase() === "daily");
   const weekly = tasks.filter((t) => (t.frequency ?? "").toLowerCase() === "weekly");
@@ -526,7 +552,7 @@ function GroupedRows({
       {groups.map((g) => (
         <React.Fragment key={g.label}>
           <tr>
-            <td className="pt-4 pb-2 text-xs font-semibold text-white/70" colSpan={8}>
+            <td className="pt-4 pb-2 text-xs font-semibold text-white/70" colSpan={9}>
               {g.label}
               <span className="ml-2 text-white/40">({g.rows.length})</span>
             </td>
@@ -567,6 +593,30 @@ function GroupedRows({
                   value={t.status}
                   onChange={(v) => void updateTask(t.id, { status: v })}
                 />
+              </td>
+              <td className="py-2 pr-3">
+                <div className="flex items-center gap-2">
+                  <span className="min-w-[18px] text-white/70">
+                    {t._count?.attachments ? String(t._count.attachments) : "0"}
+                  </span>
+                  <label className="jam-btn jam-btn-primary h-8 px-3 text-xs">
+                    Upload
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                      onChange={async (e) => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        try {
+                          await onUpload(t.id, f);
+                        } finally {
+                          e.target.value = "";
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
               </td>
               <td className="py-2 pr-3">
                 <input

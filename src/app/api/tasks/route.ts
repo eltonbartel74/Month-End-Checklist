@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   const tasks = await prisma.task.findMany({
+    include: { _count: { select: { attachments: true } } },
     orderBy: [{ createdAt: "asc" }],
   });
 

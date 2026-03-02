@@ -42,6 +42,24 @@ model Task {
   blocker     String?
   notes       String?
 
+  attachments Attachment[]
+
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+}
+
+model Attachment {
+  id          String   @id @default(cuid())
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  url         String
+  path        String
+  filename    String
+  contentType String?
+  sizeBytes   Int?
+
+  createdAt   DateTime @default(now())
+
+  @@index([taskId])
 }

@@ -46,8 +46,17 @@ export async function PATCH(
         ? current.repeatEnabled
         : body.repeatEnabled;
 
-  // Timestamp completion when a task moves into DONE.
+  // Enforce working paper upload before completing.
   const transitionedToDone = current.status !== "DONE" && statusRequested === "DONE";
+  if (transitionedToDone) {
+    const attCount = await prisma.attachment.count({ where: { taskId: id } });
+    if (attCount === 0) {
+      return NextResponse.json(
+        { error: "Upload a working paper (PDF/Excel) before marking Done." },
+        { status: 409 }
+      );
+    }
+  }
 
   // If marking DONE on a repeating task, roll nextDueAt according to rules:
   // - Daily/Weekly: skip public holidays (no catch-up)
