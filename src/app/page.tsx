@@ -35,6 +35,7 @@ export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [newTitle, setNewTitle] = useState("");
+  const [newOwner, setNewOwner] = useState("");
   const [period, setPeriod] = useState("2026-02");
   const [closing, setClosing] = useState(false);
 
@@ -157,12 +158,25 @@ export default function Home() {
 
   async function createTask() {
     if (!newTitle.trim()) return;
-    await fetch("/api/tasks", {
+    if (!newOwner.trim()) {
+      setError("Owner is required.");
+      return;
+    }
+
+    const res = await fetch("/api/tasks", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title: newTitle.trim() }),
+      body: JSON.stringify({ title: newTitle.trim(), owner: newOwner.trim() }),
     });
+
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      setError(data.error || `Create failed (${res.status})`);
+      return;
+    }
+
     setNewTitle("");
+    setNewOwner("");
     await refresh();
   }
 
@@ -279,6 +293,15 @@ export default function Home() {
               placeholder="New task title…"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void createTask();
+              }}
+            />
+            <input
+              className="h-10 w-[160px] rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+              placeholder="Owner…"
+              value={newOwner}
+              onChange={(e) => setNewOwner(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") void createTask();
               }}
