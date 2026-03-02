@@ -688,12 +688,24 @@ function GroupedRows({
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
   onUpload: (taskId: string, file: File) => Promise<void>;
 }) {
-  const daily = tasks.filter((t) => (t.frequency ?? "").toLowerCase() === "daily");
-  const weekly = tasks.filter((t) => (t.frequency ?? "").toLowerCase() === "weekly");
-  const monthly = tasks.filter((t) => (t.frequency ?? "").toLowerCase() === "monthly");
+  const fx = (t: Task) => (t.frequency ?? "").toLowerCase();
+  const daily = tasks.filter((t) => fx(t) === "daily");
+  const weekly = tasks.filter((t) => fx(t) === "weekly");
+  const monthly = tasks.filter((t) => fx(t) === "monthly");
+  const adhoc = tasks.filter((t) => {
+    const f = fx(t);
+    return (
+      f === "adhoc" ||
+      f === "ad hoc" ||
+      f === "ad-hoc" ||
+      (!f || !["daily", "weekly", "monthly"].includes(f))
+    );
+  });
+
   const groups: Array<{ label: string; rows: Task[] }> = [
     { label: "Daily", rows: daily },
     { label: "Weekly", rows: weekly },
+    { label: "Adhoc", rows: adhoc },
     { label: "Monthly", rows: monthly },
   ];
 

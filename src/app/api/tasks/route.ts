@@ -11,8 +11,9 @@ export async function GET() {
     const x = (f ?? "").toLowerCase();
     if (x === "daily") return 1;
     if (x === "weekly") return 2;
-    if (x === "monthly") return 3;
-    return 9;
+    if (x === "adhoc" || x === "ad hoc" || x === "ad-hoc") return 3;
+    if (x === "monthly") return 4;
+    return 3; // treat blanks/other as Adhoc by default
   };
 
   tasks.sort((a, b) => {
