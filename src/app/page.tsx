@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { isBusinessDay } from "@/lib/schedule";
 import { uploadWorkingPaper } from "@/app/uploadWorkingPaper";
 
 type TaskStatus = "NOT_STARTED" | "IN_PROGRESS" | "WAITING" | "BLOCKED" | "DONE";
@@ -259,6 +260,8 @@ export default function Home() {
             }
           />
         </div>
+
+        <OwnerAccordion tasks={tasks} period={period} />
       </div>
 
       <div className="rounded-md border border-white/10 bg-white/5 p-4">
@@ -290,7 +293,7 @@ export default function Home() {
           </div>
         </div>
 
-        <OwnerKpis tasks={tasks} />
+        {/* Owner KPIs moved to KPI section */}
 
         {error ? (
           <div className="mt-3 flex items-center justify-between gap-3 rounded border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-100">
@@ -451,7 +454,60 @@ function StatusChips({
   );
 }
 
-function OwnerKpis({ tasks }: { tasks: Task[] }) {
+function parsePeriod(period: string) {
+  const m = /^([0-9]{4})-([0-9]{2})$/.exec(period.trim());
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  if (month < 1 || month > 12) return null;
+  return { year, month };
+}
+
+function businessDaysInMonthSa(period: string) {
+  const p = parsePeriod(period);
+  if (!p) return null;
+  const { year, month } = p;
+  const start = new Date(Date.UTC(year, month - 1, 1));
+  const end = new Date(Date.UTC(year, month, 1));
+
+  let count = 0;
+  for (let d = new Date(start); d < end; d.setUTCDate(d.getUTCDate() + 1)) {
+    if (isBusinessDay(d)) count++;
+  }
+  return count;
+}
+
+function isoDay(d: Date) {
+  const js = d.getUTCDay();
+  return js === 0 ? 7 : js;
+}
+
+function countWeekdayOccurrencesInMonthSa(period: string, isoWeekdays: number[]) {
+  const p = parsePeriod(period);
+  if (!p) return null;
+  const { year, month } = p;
+  const start = new Date(Date.UTC(year, month - 1, 1));
+  const end = new Date(Date.UTC(year, month, 1));
+
+  const set = new Set(isoWeekdays.filter((x) => x >= 1 && x <= 7));
+  let count = 0;
+  for (let d = new Date(start); d < end; d.setUTCDate(d.getUTCDate() + 1)) {
+    if (!isBusinessDay(d)) continue; // weekly skip holidays
+    if (set.has(isoDay(d))) count++;
+  }
+  return count;
+}
+
+function parseHoursMaybe(s: string | null) {
+  if (!s) return null;
+  const m = String(s).trim().replace(/hrs?/gi, "").trim();
+  const n = Number(m);
+  return Number.isFinite(n) ? n : null;
+}
+
+function OwnerAccordion({ tasks, period }: { tasks: Task[]; period: string }) {
+  const bizDays = businessDaysInMonthSa(period);
+
   const rows = useMemo(() => {
     const byOwner = new Map<string, Task[]>();
     for (const t of tasks) {
@@ -460,10 +516,9 @@ function OwnerKpis({ tasks }: { tasks: Task[] }) {
       byOwner.get(key)!.push(t);
     }
 
-    const out = Array.from(byOwner.entries()).map(([owner, ts]) => {
+    const owners = Array.from(byOwner.entries()).map(([owner, ts]) => {
       const total = ts.length;
       const done = ts.filter((t) => t.status === "DONE");
-      const doneCount = done.length;
       const overdue = ts.filter(
         (t) =>
           t.status !== "DONE" &&
@@ -477,47 +532,123 @@ function OwnerKpis({ tasks }: { tasks: Task[] }) {
         const doneDay = new Date(t.lastDoneAt!).toISOString().slice(0, 10);
         return doneDay <= dueDay;
       }).length;
+      const onTimePct = doneWithDue.length ? doneOnTime / doneWithDue.length : null;
 
-      const pct = doneWithDue.length ? doneOnTime / doneWithDue.length : null;
-      return { owner, total, done: doneCount, overdue, onTimePct: pct };
+      // Workload hours/month
+      let missingHours = false;
+      let hours = 0;
+
+      for (const t of ts) {
+        const h = parseHoursMaybe(t.estHoursPm);
+        if (h === null) {
+          missingHours = true;
+          continue;
+        }
+
+        const f = (t.frequency ?? "").toLowerCase();
+        if (f === "monthly") {
+          hours += h;
+        } else if (f === "daily") {
+          if (bizDays === null) {
+            missingHours = true;
+          } else {
+            hours += h * bizDays;
+          }
+        } else if (f === "weekly") {
+          const occ = countWeekdayOccurrencesInMonthSa(period, t.weeklyDays ?? []);
+          if (occ === null) {
+            missingHours = true;
+          } else {
+            hours += h * occ;
+          }
+        } else {
+          // ignore other frequencies in workload calc for now
+        }
+      }
+
+      return {
+        owner,
+        tasks: ts,
+        total,
+        done: done.length,
+        overdue,
+        onTimePct,
+        workloadHours: hours,
+        workloadMissing: missingHours,
+      };
     });
 
-    out.sort((a, b) => a.owner.localeCompare(b.owner));
-    return out;
-  }, [tasks]);
+    owners.sort((a, b) => a.owner.localeCompare(b.owner));
+    return owners;
+  }, [tasks, period, bizDays]);
+
+  const totalWorkload = rows.reduce(
+    (acc, r) => acc + (r.workloadMissing ? 0 : r.workloadHours),
+    0
+  );
 
   if (rows.length === 0) return null;
 
   return (
     <div className="mt-4 rounded border border-white/10 bg-black/10 p-3">
-      <div className="text-sm font-semibold">By owner</div>
-      <div className="mt-2 overflow-x-auto">
-        <table className="w-full border-collapse text-left text-sm">
-          <thead>
-            <tr className="border-b border-white/10 text-xs text-white/70">
-              <th className="py-2 pr-3">Owner</th>
-              <th className="py-2 pr-3">Total</th>
-              <th className="py-2 pr-3">Done</th>
-              <th className="py-2 pr-3">Overdue</th>
-              <th className="py-2 pr-3">On-time %</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.owner} className="border-b border-white/10">
-                <td className="py-2 pr-3">{r.owner}</td>
-                <td className="py-2 pr-3">{r.total}</td>
-                <td className="py-2 pr-3">{r.done}</td>
-                <td className="py-2 pr-3">{r.overdue}</td>
-                <td className="py-2 pr-3">
-                  {r.onTimePct === null
-                    ? "–"
-                    : `${Math.round(r.onTimePct * 100)}%`}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <div className="text-sm font-semibold">By owner</div>
+          <div className="text-xs text-white/60">
+            Workload % uses {period} SA business days (daily = hrs × business days;
+            weekly skips public holidays).
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-2 space-y-2">
+        {rows.map((r) => {
+          const workloadPct =
+            !r.workloadMissing && totalWorkload > 0
+              ? r.workloadHours / totalWorkload
+              : null;
+
+          return (
+            <details
+              key={r.owner}
+              className="rounded border border-white/10 bg-black/10 px-3 py-2"
+            >
+              <summary className="cursor-pointer list-none">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="font-semibold">{r.owner}</div>
+                  <div className="flex flex-wrap gap-3 text-xs text-white/70">
+                    <span>Total: {r.total}</span>
+                    <span>Done: {r.done}</span>
+                    <span>Overdue: {r.overdue}</span>
+                    <span>
+                      On-time: {r.onTimePct === null ? "–" : `${Math.round(r.onTimePct * 100)}%`}
+                    </span>
+                    <span>
+                      Workload: {workloadPct === null ? "Fill hrs" : `${Math.round(workloadPct * 100)}%`}
+                    </span>
+                  </div>
+                </div>
+              </summary>
+
+              <div className="mt-3 text-sm text-white/80">
+                {r.tasks
+                  .slice()
+                  .sort((a, b) => a.title.localeCompare(b.title))
+                  .map((t) => (
+                    <div key={t.id} className="flex items-start justify-between gap-3 border-t border-white/10 py-2">
+                      <div>
+                        <div className="font-medium">{t.title}</div>
+                        <div className="text-xs text-white/60">
+                          {(t.frequency ?? "").toLowerCase()} • {t.status.toLowerCase().replaceAll("_", " ")}
+                        </div>
+                      </div>
+                      <div className="text-xs text-white/60">Hrs: {t.estHoursPm ?? "–"}</div>
+                    </div>
+                  ))}
+              </div>
+            </details>
+          );
+        })}
       </div>
     </div>
   );
