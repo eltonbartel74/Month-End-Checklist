@@ -98,20 +98,57 @@ export default function Home() {
 
     const doneWithDue = doneTasks.filter((t) => Boolean(t.dueAt && t.lastDoneAt));
     const doneOnTime = doneWithDue.filter((t) => {
-      const due = new Date(t.dueAt!).getTime();
-      const doneAt = new Date(t.lastDoneAt!).getTime();
       // on time if done on/before due date (date-level), not time-of-day strict.
       const dueDay = new Date(t.dueAt!).toISOString().slice(0, 10);
       const doneDay = new Date(t.lastDoneAt!).toISOString().slice(0, 10);
-      if (doneDay <= dueDay) return true;
-      // fallback just in case
-      return doneAt <= due;
+      return doneDay <= dueDay;
     }).length;
 
     const onTimePct =
       doneWithDue.length === 0 ? null : doneOnTime / doneWithDue.length;
 
-    return { total, overdue, dueNext7, inProgress, done, onTimePct };
+    // Monthly weighted completion by hours
+    const monthly = tasks.filter(
+      (t) => (t.frequency ?? "").toLowerCase() === "monthly"
+    );
+
+    const parseHours = (s: string | null) => {
+      if (!s) return null;
+      const m = String(s)
+        .trim()
+        .replace(/hrs?/gi, "")
+        .trim();
+      const n = Number(m);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    const monthlyHours = monthly.map((t) => parseHours(t.estHoursPm));
+    const monthlyMissingHours = monthlyHours.some((h) => h === null);
+
+    let monthlyWeightedPct: number | null = null;
+    if (!monthlyMissingHours && monthly.length > 0) {
+      const totalHrs = monthly.reduce(
+        (acc, t, i) => acc + (monthlyHours[i] ?? 0),
+        0
+      );
+      const doneHrs = monthly.reduce(
+        (acc, t, i) =>
+          acc + (t.status === "DONE" ? (monthlyHours[i] ?? 0) : 0),
+        0
+      );
+      monthlyWeightedPct = totalHrs > 0 ? doneHrs / totalHrs : null;
+    }
+
+    return {
+      total,
+      overdue,
+      dueNext7,
+      inProgress,
+      done,
+      onTimePct,
+      monthlyWeightedPct,
+      monthlyMissingHours,
+    };
   }, [tasks, now]);
 
   async function createTask() {
@@ -187,7 +224,7 @@ export default function Home() {
 
       <div className="rounded-md border border-white/10 bg-white/5 p-4">
         <div className="text-sm text-white/80">KPIs (live)</div>
-        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-6">
+        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-7">
           <Kpi label="Total" value={String(kpis.total)} />
           <Kpi label="Overdue" value={String(kpis.overdue)} />
           <Kpi label="Due next 7 days" value={String(kpis.dueNext7)} />
@@ -199,6 +236,16 @@ export default function Home() {
               kpis.onTimePct === null
                 ? "–"
                 : `${Math.round(kpis.onTimePct * 100)}%`
+            }
+          />
+          <Kpi
+            label="Monthly % (hrs)"
+            value={
+              kpis.monthlyMissingHours
+                ? "Fill hrs"
+                : kpis.monthlyWeightedPct === null
+                  ? "–"
+                  : `${Math.round(kpis.monthlyWeightedPct * 100)}%`
             }
           />
         </div>
@@ -296,6 +343,34 @@ function Kpi({ label, value }: { label: string; value: string }) {
       <div className="mt-1 text-lg font-semibold">{value}</div>
     </div>
   );
+}
+
+function dayLabel(n: number) {
+  return (
+    {
+      1: "Mon",
+      2: "Tue",
+      3: "Wed",
+      4: "Thu",
+      5: "Fri",
+      6: "Sat",
+      7: "Sun",
+    } as Record<number, string>
+  )[n] ?? String(n);
+}
+
+function formatSchedule(t: Task) {
+  const f = (t.frequency ?? "").toLowerCase();
+  if (f === "weekly") {
+    const days = (t.weeklyDays ?? []).map(dayLabel).join(", ");
+    const time = t.dailyTime ? ` ${t.dailyTime}` : "";
+    return `${days}${time}`;
+  }
+  if (f === "daily") {
+    const time = t.dailyTime ? ` ${t.dailyTime}` : "";
+    return `Mon–Fri${time}`;
+  }
+  return "";
 }
 
 function StatusChips({
@@ -440,16 +515,11 @@ function GroupedRows({
   const daily = tasks.filter((t) => (t.frequency ?? "").toLowerCase() === "daily");
   const weekly = tasks.filter((t) => (t.frequency ?? "").toLowerCase() === "weekly");
   const monthly = tasks.filter((t) => (t.frequency ?? "").toLowerCase() === "monthly");
-  const other = tasks.filter((t) =>
-    !["daily", "weekly", "monthly"].includes((t.frequency ?? "").toLowerCase())
-  );
-
   const groups: Array<{ label: string; rows: Task[] }> = [
     { label: "Daily", rows: daily },
     { label: "Weekly", rows: weekly },
     { label: "Monthly", rows: monthly },
   ];
-  if (other.length) groups.push({ label: "Other", rows: other });
 
   return (
     <>
@@ -498,19 +568,47 @@ function GroupedRows({
                   onChange={(v) => void updateTask(t.id, { status: v })}
                 />
               </td>
-              <td className="py-2 pr-3 text-white/80">{t.estHoursPm ?? "–"}</td>
-              <td className="py-2 pr-3 text-white/80">{t.dependency ?? "–"}</td>
               <td className="py-2 pr-3">
                 <input
-                  type="date"
-                  className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
-                  value={t.dueAt ? t.dueAt.slice(0, 10) : ""}
+                  className="w-[90px] rounded border border-white/10 bg-black/10 px-2 py-1 text-white/90"
+                  value={t.estHoursPm ?? ""}
+                  placeholder="–"
                   onChange={(e) =>
-                    void updateTask(t.id, {
-                      dueAt: e.target.value ? new Date(e.target.value).toISOString() : null,
-                    })
+                    setTasks((prev) =>
+                      prev.map((x) =>
+                        x.id === t.id ? { ...x, estHoursPm: e.target.value } : x
+                      )
+                    )
+                  }
+                  onBlur={(e) =>
+                    void updateTask(t.id, { estHoursPm: e.target.value || null })
                   }
                 />
+              </td>
+              <td className="py-2 pr-3 text-white/80">{t.dependency ?? "–"}</td>
+              <td className="py-2 pr-3">
+                {((t.frequency ?? "").toLowerCase() === "weekly" &&
+                  t.weeklyDays?.length) ||
+                (((t.frequency ?? "").toLowerCase() === "weekly" ||
+                  (t.frequency ?? "").toLowerCase() === "daily") &&
+                  t.dailyTime) ? (
+                  <div className="text-white/80">
+                    {formatSchedule(t)}
+                  </div>
+                ) : (
+                  <input
+                    type="date"
+                    className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
+                    value={t.dueAt ? t.dueAt.slice(0, 10) : ""}
+                    onChange={(e) =>
+                      void updateTask(t.id, {
+                        dueAt: e.target.value
+                          ? new Date(e.target.value).toISOString()
+                          : null,
+                      })
+                    }
+                  />
+                )}
               </td>
               <td className="py-2 pr-3">
                 <input
