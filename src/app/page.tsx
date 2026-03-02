@@ -191,21 +191,10 @@ export default function Home() {
                       />
                     </td>
                     <td className="py-2 pr-3">
-                      <select
-                        className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
+                      <StatusChips
                         value={t.status}
-                        onChange={(e) =>
-                          void updateTask(t.id, {
-                            status: e.target.value as TaskStatus,
-                          })
-                        }
-                      >
-                        <option value="NOT_STARTED">Not started</option>
-                        <option value="IN_PROGRESS">In progress</option>
-                        <option value="WAITING">Waiting</option>
-                        <option value="BLOCKED">Blocked</option>
-                        <option value="DONE">Done</option>
-                      </select>
+                        onChange={(v) => void updateTask(t.id, { status: v })}
+                      />
                     </td>
                     <td className="py-2 pr-3">
                       <input
@@ -270,6 +259,46 @@ function Kpi({ label, value }: { label: string; value: string }) {
     <div className="rounded border border-white/10 bg-black/10 p-3">
       <div className="text-xs text-white/70">{label}</div>
       <div className="mt-1 text-lg font-semibold">{value}</div>
+    </div>
+  );
+}
+
+function StatusChips({
+  value,
+  onChange,
+}: {
+  value: TaskStatus;
+  onChange: (v: TaskStatus) => void;
+}) {
+  const options: Array<{ v: TaskStatus; label: string; tone: string }> = [
+    { v: "NOT_STARTED", label: "Not started", tone: "border-white/15 text-white/80 hover:bg-white/5" },
+    { v: "IN_PROGRESS", label: "In progress", tone: "border-yellow-400/40 text-yellow-200 hover:bg-yellow-400/10" },
+    { v: "WAITING", label: "Waiting", tone: "border-sky-400/40 text-sky-200 hover:bg-sky-400/10" },
+    { v: "BLOCKED", label: "Blocked", tone: "border-red-400/40 text-red-200 hover:bg-red-400/10" },
+    { v: "DONE", label: "Done", tone: "border-emerald-400/40 text-emerald-200 hover:bg-emerald-400/10" },
+  ];
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {options.map((o) => {
+        const active = o.v === value;
+        return (
+          <button
+            key={o.v}
+            type="button"
+            onClick={() => onChange(o.v)}
+            className={
+              "rounded-full border px-2 py-1 text-xs leading-none transition " +
+              (active
+                ? `bg-white/10 ${o.tone}`
+                : `bg-black/10 ${o.tone}`)
+            }
+            aria-pressed={active}
+          >
+            {o.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
