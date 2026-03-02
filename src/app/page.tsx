@@ -24,17 +24,44 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [newTitle, setNewTitle] = useState("");
 
+  const [error, setError] = useState<string | null>(null);
+
   async function refresh() {
     setLoading(true);
-    const res = await fetch("/api/tasks", { cache: "no-store" });
-    const data = (await res.json()) as { tasks: Task[] };
-    setTasks(data.tasks);
-    setLoading(false);
+    setError(null);
+
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 15_000);
+
+    try {
+      const res = await fetch("/api/tasks", {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        throw new Error(`API error ${res.status}`);
+      }
+
+      const data = (await res.json()) as { tasks: Task[] };
+      setTasks(data.tasks);
+    } catch (e) {
+      const msg =
+        e instanceof Error
+          ? e.name === "AbortError"
+            ? "Timed out loading tasks."
+            : e.message
+          : "Failed to load tasks.";
+      setError(msg);
+    } finally {
+      clearTimeout(t);
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [now, setNow] = useState(() => Date.now());
@@ -130,6 +157,22 @@ export default function Home() {
             </button>
           </div>
         </div>
+
+        {error ? (
+          <div className="mt-3 flex items-center justify-between gap-3 rounded border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-100">
+            <div>
+              <div className="font-semibold">Couldn’t load tasks</div>
+              <div className="text-xs text-red-100/80">{error}</div>
+            </div>
+            <button
+              className="jam-btn jam-btn-primary h-9"
+              type="button"
+              onClick={() => void refresh()}
+            >
+              Retry
+            </button>
+          </div>
+        ) : null}
 
         <div className="mt-4 overflow-x-auto">
           <table className="w-full border-collapse text-left text-sm">
