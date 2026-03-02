@@ -30,10 +30,18 @@ export default function Home() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
   }, []);
 
-  const now = Date.now();
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    // keep KPIs reasonably fresh without breaking the React "purity" rule
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
   const kpis = useMemo(() => {
     const overdue = tasks.filter(
       (t) => t.status !== "DONE" && t.dueAt && new Date(t.dueAt).getTime() < now
