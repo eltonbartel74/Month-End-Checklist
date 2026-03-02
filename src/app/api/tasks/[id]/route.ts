@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { nextDaily, nextMonthly, nextWeekly } from "@/lib/schedule";
+import { nextDaily, nextWeekly } from "@/lib/schedule";
 import { NextResponse } from "next/server";
 
 export async function PATCH(
@@ -78,17 +78,8 @@ export async function PATCH(
       rolledStatus = "NOT_STARTED";
       rolledLastDoneAt = new Date();
     } else if (freq === "monthly") {
-      const dom =
-        body.monthlyDay === null
-          ? null
-          : body.monthlyDay === undefined
-            ? current.monthlyDay
-            : body.monthlyDay;
-      if (dom) {
-        rolledNextDueAt = nextMonthly(from, dom, dailyTime);
-        rolledStatus = "NOT_STARTED";
-        rolledLastDoneAt = new Date();
-      }
+      // Monthly tasks roll forward only when you click the Month Closed button.
+      rolledLastDoneAt = new Date();
     }
   }
 

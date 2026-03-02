@@ -31,6 +31,8 @@ export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [newTitle, setNewTitle] = useState("");
+  const [period, setPeriod] = useState("2026-02");
+  const [closing, setClosing] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -114,6 +116,25 @@ export default function Home() {
     await refresh();
   }
 
+  async function closeMonth() {
+    setClosing(true);
+    try {
+      const res = await fetch("/api/month-close", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ period }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok) {
+        setError(data.error || `Month close failed (${res.status})`);
+        return;
+      }
+      await refresh();
+    } finally {
+      setClosing(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -124,6 +145,25 @@ export default function Home() {
           <p className="mt-1 text-white/80">
             Quick status, overdue tasks, and ETAs — without chasing people.
           </p>
+        </div>
+
+        <div className="flex flex-wrap items-end gap-2">
+          <div>
+            <div className="text-xs text-white/60">Period (YYYY-MM)</div>
+            <input
+              className="h-10 w-[140px] rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+              value={period}
+              onChange={(e) => setPeriod(e.target.value)}
+            />
+          </div>
+          <button
+            className="jam-btn jam-btn-primary h-10"
+            type="button"
+            onClick={() => void closeMonth()}
+            disabled={closing}
+          >
+            {closing ? "Closing…" : "Month Closed"}
+          </button>
         </div>
       </div>
 
