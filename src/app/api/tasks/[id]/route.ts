@@ -46,12 +46,19 @@ export async function PATCH(
         ? current.repeatEnabled
         : body.repeatEnabled;
 
+  // Timestamp completion when a task moves into DONE.
+  const transitionedToDone = current.status !== "DONE" && statusRequested === "DONE";
+
   // If marking DONE on a repeating task, roll nextDueAt according to rules:
   // - Daily/Weekly: skip public holidays (no catch-up)
   // - Monthly: roll forward to next business day if holiday/weekend
   let rolledStatus: typeof statusRequested | undefined;
   let rolledNextDueAt: Date | null | undefined;
   let rolledLastDoneAt: Date | null | undefined;
+
+  if (transitionedToDone) {
+    rolledLastDoneAt = new Date();
+  }
 
   if (statusRequested === "DONE" && repeatEnabled) {
     const from = new Date();

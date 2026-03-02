@@ -83,6 +83,9 @@ export default function Home() {
   }, []);
 
   const kpis = useMemo(() => {
+    const total = tasks.length;
+    const doneTasks = tasks.filter((t) => t.status === "DONE");
+    const done = doneTasks.length;
     const overdue = tasks.filter(
       (t) => t.status !== "DONE" && t.dueAt && new Date(t.dueAt).getTime() < now
     ).length;
@@ -92,8 +95,23 @@ export default function Home() {
       return ms >= 0 && ms <= 7 * 24 * 60 * 60 * 1000;
     }).length;
     const inProgress = tasks.filter((t) => t.status === "IN_PROGRESS").length;
-    const done = tasks.filter((t) => t.status === "DONE").length;
-    return { overdue, dueNext7, inProgress, done };
+
+    const doneWithDue = doneTasks.filter((t) => Boolean(t.dueAt && t.lastDoneAt));
+    const doneOnTime = doneWithDue.filter((t) => {
+      const due = new Date(t.dueAt!).getTime();
+      const doneAt = new Date(t.lastDoneAt!).getTime();
+      // on time if done on/before due date (date-level), not time-of-day strict.
+      const dueDay = new Date(t.dueAt!).toISOString().slice(0, 10);
+      const doneDay = new Date(t.lastDoneAt!).toISOString().slice(0, 10);
+      if (doneDay <= dueDay) return true;
+      // fallback just in case
+      return doneAt <= due;
+    }).length;
+
+    const onTimePct =
+      doneWithDue.length === 0 ? null : doneOnTime / doneWithDue.length;
+
+    return { total, overdue, dueNext7, inProgress, done, onTimePct };
   }, [tasks, now]);
 
   async function createTask() {
@@ -169,11 +187,20 @@ export default function Home() {
 
       <div className="rounded-md border border-white/10 bg-white/5 p-4">
         <div className="text-sm text-white/80">KPIs (live)</div>
-        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-6">
+          <Kpi label="Total" value={String(kpis.total)} />
           <Kpi label="Overdue" value={String(kpis.overdue)} />
           <Kpi label="Due next 7 days" value={String(kpis.dueNext7)} />
           <Kpi label="In progress" value={String(kpis.inProgress)} />
           <Kpi label="Done" value={String(kpis.done)} />
+          <Kpi
+            label="On-time %"
+            value={
+              kpis.onTimePct === null
+                ? "–"
+                : `${Math.round(kpis.onTimePct * 100)}%`
+            }
+          />
         </div>
       </div>
 
@@ -205,6 +232,8 @@ export default function Home() {
             </button>
           </div>
         </div>
+
+        <OwnerKpis tasks={tasks} />
 
         {error ? (
           <div className="mt-3 flex items-center justify-between gap-3 rounded border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-100">
@@ -323,6 +352,78 @@ function StatusChips({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+function OwnerKpis({ tasks }: { tasks: Task[] }) {
+  const rows = useMemo(() => {
+    const byOwner = new Map<string, Task[]>();
+    for (const t of tasks) {
+      const key = (t.owner ?? "").trim() || "Unassigned";
+      if (!byOwner.has(key)) byOwner.set(key, []);
+      byOwner.get(key)!.push(t);
+    }
+
+    const out = Array.from(byOwner.entries()).map(([owner, ts]) => {
+      const total = ts.length;
+      const done = ts.filter((t) => t.status === "DONE");
+      const doneCount = done.length;
+      const overdue = ts.filter(
+        (t) =>
+          t.status !== "DONE" &&
+          t.dueAt &&
+          new Date(t.dueAt).getTime() < Date.now()
+      ).length;
+
+      const doneWithDue = done.filter((t) => Boolean(t.dueAt && t.lastDoneAt));
+      const doneOnTime = doneWithDue.filter((t) => {
+        const dueDay = new Date(t.dueAt!).toISOString().slice(0, 10);
+        const doneDay = new Date(t.lastDoneAt!).toISOString().slice(0, 10);
+        return doneDay <= dueDay;
+      }).length;
+
+      const pct = doneWithDue.length ? doneOnTime / doneWithDue.length : null;
+      return { owner, total, done: doneCount, overdue, onTimePct: pct };
+    });
+
+    out.sort((a, b) => a.owner.localeCompare(b.owner));
+    return out;
+  }, [tasks]);
+
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="mt-4 rounded border border-white/10 bg-black/10 p-3">
+      <div className="text-sm font-semibold">By owner</div>
+      <div className="mt-2 overflow-x-auto">
+        <table className="w-full border-collapse text-left text-sm">
+          <thead>
+            <tr className="border-b border-white/10 text-xs text-white/70">
+              <th className="py-2 pr-3">Owner</th>
+              <th className="py-2 pr-3">Total</th>
+              <th className="py-2 pr-3">Done</th>
+              <th className="py-2 pr-3">Overdue</th>
+              <th className="py-2 pr-3">On-time %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.owner} className="border-b border-white/10">
+                <td className="py-2 pr-3">{r.owner}</td>
+                <td className="py-2 pr-3">{r.total}</td>
+                <td className="py-2 pr-3">{r.done}</td>
+                <td className="py-2 pr-3">{r.overdue}</td>
+                <td className="py-2 pr-3">
+                  {r.onTimePct === null
+                    ? "–"
+                    : `${Math.round(r.onTimePct * 100)}%`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
