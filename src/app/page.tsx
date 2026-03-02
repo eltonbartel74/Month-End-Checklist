@@ -143,7 +143,7 @@ export default function Home() {
                 <th className="py-2 pr-3">Dependency</th>
                 <th className="py-2 pr-3">Due</th>
                 <th className="py-2 pr-3">ETA</th>
-                <th className="py-2 pr-3">Blocker</th>
+                <th className="py-2 pr-3">Comments</th>
               </tr>
             </thead>
             <tbody>
