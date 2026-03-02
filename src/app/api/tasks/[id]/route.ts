@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { nextDaily, nextMonthly, nextWeekly } from "@/lib/schedule";
 import { NextResponse } from "next/server";
 
 export async function PATCH(
@@ -19,24 +20,109 @@ export async function PATCH(
     frequency?: string | null;
     estHoursPm?: string | null;
     dependency?: string | null;
+
+    repeatEnabled?: boolean | null;
+    dailyTime?: string | null;
+    weeklyDays?: number[] | null;
+    monthlyDay?: number | null;
+    nextDueAt?: string | null;
+
     dueAt?: string | null;
     etaAt?: string | null;
     blocker?: string | null;
     notes?: string | null;
   };
 
+  const current = await prisma.task.findUnique({ where: { id } });
+  if (!current) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const statusRequested = body.status ?? current.status;
+  const repeatEnabled =
+    body.repeatEnabled === null
+      ? null
+      : body.repeatEnabled === undefined
+        ? current.repeatEnabled
+        : body.repeatEnabled;
+
+  // If marking DONE on a repeating task, roll nextDueAt according to rules:
+  // - Daily/Weekly: skip public holidays (no catch-up)
+  // - Monthly: roll forward to next business day if holiday/weekend
+  let rolledStatus: typeof statusRequested | undefined;
+  let rolledNextDueAt: Date | null | undefined;
+  let rolledLastDoneAt: Date | null | undefined;
+
+  if (statusRequested === "DONE" && repeatEnabled) {
+    const from = new Date();
+    const freq = (body.frequency ?? current.frequency ?? "").toLowerCase();
+    const dailyTime =
+      body.dailyTime === null
+        ? null
+        : body.dailyTime === undefined
+          ? current.dailyTime
+          : body.dailyTime;
+
+    if (freq === "daily") {
+      rolledNextDueAt = nextDaily(from, dailyTime);
+      rolledStatus = "NOT_STARTED";
+      rolledLastDoneAt = new Date();
+    } else if (freq === "weekly") {
+      const days =
+        body.weeklyDays === null
+          ? []
+          : body.weeklyDays === undefined
+            ? current.weeklyDays
+            : body.weeklyDays;
+      rolledNextDueAt = nextWeekly(from, days, dailyTime);
+      rolledStatus = "NOT_STARTED";
+      rolledLastDoneAt = new Date();
+    } else if (freq === "monthly") {
+      const dom =
+        body.monthlyDay === null
+          ? null
+          : body.monthlyDay === undefined
+            ? current.monthlyDay
+            : body.monthlyDay;
+      if (dom) {
+        rolledNextDueAt = nextMonthly(from, dom, dailyTime);
+        rolledStatus = "NOT_STARTED";
+        rolledLastDoneAt = new Date();
+      }
+    }
+  }
+
   const task = await prisma.task.update({
     where: { id },
     data: {
       title: body.title?.trim(),
       owner: body.owner === null ? null : body.owner?.trim(),
-      status: body.status,
-      frequency:
-        body.frequency === null ? null : body.frequency?.trim(),
-      estHoursPm:
-        body.estHoursPm === null ? null : body.estHoursPm?.trim(),
-      dependency:
-        body.dependency === null ? null : body.dependency?.trim(),
+
+      status: rolledStatus ?? body.status,
+
+      frequency: body.frequency === null ? null : body.frequency?.trim(),
+      estHoursPm: body.estHoursPm === null ? null : body.estHoursPm?.trim(),
+      dependency: body.dependency === null ? null : body.dependency?.trim(),
+
+      repeatEnabled: body.repeatEnabled === null ? undefined : body.repeatEnabled,
+      dailyTime: body.dailyTime === null ? null : body.dailyTime?.trim(),
+      weeklyDays:
+        body.weeklyDays === null
+          ? []
+          : body.weeklyDays
+            ? body.weeklyDays.map((x) => Number(x)).filter((x) => Number.isFinite(x))
+            : undefined,
+      monthlyDay: body.monthlyDay === null ? null : body.monthlyDay,
+
+      nextDueAt:
+        rolledNextDueAt ??
+        (body.nextDueAt === null
+          ? null
+          : body.nextDueAt
+            ? new Date(body.nextDueAt)
+            : undefined),
+      lastDoneAt: rolledLastDoneAt ?? undefined,
+
       dueAt:
         body.dueAt === null
           ? null

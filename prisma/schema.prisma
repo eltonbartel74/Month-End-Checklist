@@ -29,6 +29,14 @@ model Task {
   estHoursPm  String?
   dependency  String?
 
+  // scheduling
+  repeatEnabled Boolean   @default(false)
+  dailyTime     String?   // "HH:MM" (optional)
+  weeklyDays    Int[]     @default([]) // 1=Mon ... 7=Sun
+  monthlyDay    Int?      // 1..31
+  nextDueAt     DateTime?
+  lastDoneAt    DateTime?
+
   dueAt       DateTime?
   etaAt       DateTime?
   blocker     String?

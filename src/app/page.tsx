@@ -12,6 +12,14 @@ type Task = {
   frequency: string | null;
   estHoursPm: string | null;
   dependency: string | null;
+
+  repeatEnabled: boolean;
+  dailyTime: string | null;
+  weeklyDays: number[];
+  monthlyDay: number | null;
+  nextDueAt: string | null;
+  lastDoneAt: string | null;
+
   dueAt: string | null;
   etaAt: string | null;
   blocker: string | null;
@@ -59,9 +67,9 @@ export default function Home() {
     }
   }
 
+  // Initial load
   useEffect(() => {
     void refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [now, setNow] = useState(() => Date.now());
@@ -182,6 +190,11 @@ export default function Home() {
                 <th className="py-2 pr-3">Owner</th>
                 <th className="py-2 pr-3">Status</th>
                 <th className="py-2 pr-3">Frequency</th>
+                <th className="py-2 pr-3">Repeat</th>
+                <th className="py-2 pr-3">Next due</th>
+                <th className="py-2 pr-3">Weekly days</th>
+                <th className="py-2 pr-3">Monthly day</th>
+                <th className="py-2 pr-3">Daily time</th>
                 <th className="py-2 pr-3">Hrs (p/m)</th>
                 <th className="py-2 pr-3">Dependency</th>
                 <th className="py-2 pr-3">Due</th>
@@ -192,13 +205,13 @@ export default function Home() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="py-3 text-white/70" colSpan={9}>
+                  <td className="py-3 text-white/70" colSpan={12}>
                     Loading…
                   </td>
                 </tr>
               ) : tasks.length === 0 ? (
                 <tr>
-                  <td className="py-3 text-white/70" colSpan={9}>
+                  <td className="py-3 text-white/70" colSpan={12}>
                     No tasks yet.
                   </td>
                 </tr>
@@ -246,6 +259,25 @@ export default function Home() {
                       />
                     </td>
                     <td className="py-2 pr-3 text-white/80">{t.frequency ?? "–"}</td>
+                    <td className="py-2 pr-3">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(t.repeatEnabled)}
+                        onChange={(e) =>
+                          void updateTask(t.id, { repeatEnabled: e.target.checked })
+                        }
+                      />
+                    </td>
+                    <td className="py-2 pr-3 text-white/80">
+                      {t.nextDueAt ? t.nextDueAt.slice(0, 10) : "–"}
+                    </td>
+                    <td className="py-2 pr-3 text-white/80">
+                      {t.weeklyDays?.length ? t.weeklyDays.join(",") : "–"}
+                    </td>
+                    <td className="py-2 pr-3 text-white/80">
+                      {t.monthlyDay ?? "–"}
+                    </td>
+                    <td className="py-2 pr-3 text-white/80">{t.dailyTime ?? "–"}</td>
                     <td className="py-2 pr-3 text-white/80">{t.estHoursPm ?? "–"}</td>
                     <td className="py-2 pr-3 text-white/80">{t.dependency ?? "–"}</td>
                     <td className="py-2 pr-3">
