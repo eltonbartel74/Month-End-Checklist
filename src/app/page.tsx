@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 type TaskStatus = "NOT_STARTED" | "IN_PROGRESS" | "WAITING" | "BLOCKED" | "DONE";
 
@@ -229,13 +229,7 @@ export default function Home() {
                 <th className="py-2 pr-3">Task</th>
                 <th className="py-2 pr-3">Owner</th>
                 <th className="py-2 pr-3">Status</th>
-                <th className="py-2 pr-3">Frequency</th>
-                <th className="py-2 pr-3">Repeat</th>
-                <th className="py-2 pr-3">Next due</th>
-                <th className="py-2 pr-3">Weekly days</th>
-                <th className="py-2 pr-3">Monthly day</th>
-                <th className="py-2 pr-3">Daily time</th>
-                <th className="py-2 pr-3">Hrs (p/m)</th>
+                <th className="py-2 pr-3">Hrs</th>
                 <th className="py-2 pr-3">Dependency</th>
                 <th className="py-2 pr-3">Due</th>
                 <th className="py-2 pr-3">ETA</th>
@@ -245,130 +239,18 @@ export default function Home() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="py-3 text-white/70" colSpan={12}>
+                  <td className="py-3 text-white/70" colSpan={8}>
                     Loading…
                   </td>
                 </tr>
               ) : tasks.length === 0 ? (
                 <tr>
-                  <td className="py-3 text-white/70" colSpan={12}>
+                  <td className="py-3 text-white/70" colSpan={8}>
                     No tasks yet.
                   </td>
                 </tr>
               ) : (
-                tasks.map((t) => (
-                  <tr
-                    key={t.id}
-                    className="border-b border-white/10 align-top"
-                  >
-                    <td className="py-2 pr-3">
-                      <input
-                        className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
-                        value={t.title}
-                        onChange={(e) =>
-                          setTasks((prev) =>
-                            prev.map((x) =>
-                              x.id === t.id ? { ...x, title: e.target.value } : x
-                            )
-                          )
-                        }
-                        onBlur={(e) => void updateTask(t.id, { title: e.target.value })}
-                      />
-                    </td>
-                    <td className="py-2 pr-3">
-                      <input
-                        className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
-                        value={t.owner ?? ""}
-                        placeholder="–"
-                        onChange={(e) =>
-                          setTasks((prev) =>
-                            prev.map((x) =>
-                              x.id === t.id ? { ...x, owner: e.target.value } : x
-                            )
-                          )
-                        }
-                        onBlur={(e) =>
-                          void updateTask(t.id, { owner: e.target.value || null })
-                        }
-                      />
-                    </td>
-                    <td className="py-2 pr-3">
-                      <StatusChips
-                        value={t.status}
-                        onChange={(v) => void updateTask(t.id, { status: v })}
-                      />
-                    </td>
-                    <td className="py-2 pr-3 text-white/80">{t.frequency ?? "–"}</td>
-                    <td className="py-2 pr-3">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(t.repeatEnabled)}
-                        onChange={(e) =>
-                          void updateTask(t.id, { repeatEnabled: e.target.checked })
-                        }
-                      />
-                    </td>
-                    <td className="py-2 pr-3 text-white/80">
-                      {t.nextDueAt ? t.nextDueAt.slice(0, 10) : "–"}
-                    </td>
-                    <td className="py-2 pr-3 text-white/80">
-                      {t.weeklyDays?.length ? t.weeklyDays.join(",") : "–"}
-                    </td>
-                    <td className="py-2 pr-3 text-white/80">
-                      {t.monthlyDay ?? "–"}
-                    </td>
-                    <td className="py-2 pr-3 text-white/80">{t.dailyTime ?? "–"}</td>
-                    <td className="py-2 pr-3 text-white/80">{t.estHoursPm ?? "–"}</td>
-                    <td className="py-2 pr-3 text-white/80">{t.dependency ?? "–"}</td>
-                    <td className="py-2 pr-3">
-                      <input
-                        type="date"
-                        className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
-                        value={t.dueAt ? t.dueAt.slice(0, 10) : ""}
-                        onChange={(e) =>
-                          void updateTask(t.id, {
-                            dueAt: e.target.value
-                              ? new Date(e.target.value).toISOString()
-                              : null,
-                          })
-                        }
-                      />
-                    </td>
-                    <td className="py-2 pr-3">
-                      <input
-                        type="date"
-                        className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
-                        value={t.etaAt ? t.etaAt.slice(0, 10) : ""}
-                        onChange={(e) =>
-                          void updateTask(t.id, {
-                            etaAt: e.target.value
-                              ? new Date(e.target.value).toISOString()
-                              : null,
-                          })
-                        }
-                      />
-                    </td>
-                    <td className="py-2 pr-3">
-                      <input
-                        className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
-                        value={t.blocker ?? ""}
-                        placeholder="–"
-                        onChange={(e) =>
-                          setTasks((prev) =>
-                            prev.map((x) =>
-                              x.id === t.id
-                                ? { ...x, blocker: e.target.value }
-                                : x
-                            )
-                          )
-                        }
-                        onBlur={(e) =>
-                          void updateTask(t.id, { blocker: e.target.value || null })
-                        }
-                      />
-                    </td>
-                  </tr>
-                ))
+                <GroupedRows tasks={tasks} updateTask={updateTask} setTasks={setTasks} />
               )}
             </tbody>
           </table>
@@ -395,11 +277,31 @@ function StatusChips({
   onChange: (v: TaskStatus) => void;
 }) {
   const options: Array<{ v: TaskStatus; label: string; tone: string }> = [
-    { v: "NOT_STARTED", label: "Not started", tone: "border-white/15 text-white/80 hover:bg-white/5" },
-    { v: "IN_PROGRESS", label: "In progress", tone: "border-yellow-400/40 text-yellow-200 hover:bg-yellow-400/10" },
-    { v: "WAITING", label: "Waiting", tone: "border-sky-400/40 text-sky-200 hover:bg-sky-400/10" },
-    { v: "BLOCKED", label: "Blocked", tone: "border-red-400/40 text-red-200 hover:bg-red-400/10" },
-    { v: "DONE", label: "Done", tone: "border-emerald-400/40 text-emerald-200 hover:bg-emerald-400/10" },
+    {
+      v: "NOT_STARTED",
+      label: "Not started",
+      tone: "border-white/15 text-white/80 hover:bg-white/5",
+    },
+    {
+      v: "IN_PROGRESS",
+      label: "In progress",
+      tone: "border-yellow-400/40 text-yellow-200 hover:bg-yellow-400/10",
+    },
+    {
+      v: "WAITING",
+      label: "Waiting",
+      tone: "border-sky-400/40 text-sky-200 hover:bg-sky-400/10",
+    },
+    {
+      v: "BLOCKED",
+      label: "Blocked",
+      tone: "border-red-400/40 text-red-200 hover:bg-red-400/10",
+    },
+    {
+      v: "DONE",
+      label: "Done",
+      tone: "border-emerald-400/40 text-emerald-200 hover:bg-emerald-400/10",
+    },
   ];
 
   return (
@@ -413,9 +315,7 @@ function StatusChips({
             onClick={() => onChange(o.v)}
             className={
               "rounded-full border px-2 py-1 text-xs leading-none transition " +
-              (active
-                ? `bg-white/10 ${o.tone}`
-                : `bg-black/10 ${o.tone}`)
+              (active ? `bg-white/10 ${o.tone}` : `bg-black/10 ${o.tone}`)
             }
             aria-pressed={active}
           >
@@ -424,5 +324,124 @@ function StatusChips({
         );
       })}
     </div>
+  );
+}
+
+function GroupedRows({
+  tasks,
+  updateTask,
+  setTasks,
+}: {
+  tasks: Task[];
+  updateTask: (id: string, patch: Partial<Task>) => Promise<void>;
+  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+}) {
+  const daily = tasks.filter((t) => (t.frequency ?? "").toLowerCase() === "daily");
+  const weekly = tasks.filter((t) => (t.frequency ?? "").toLowerCase() === "weekly");
+  const monthly = tasks.filter((t) => (t.frequency ?? "").toLowerCase() === "monthly");
+  const other = tasks.filter((t) =>
+    !["daily", "weekly", "monthly"].includes((t.frequency ?? "").toLowerCase())
+  );
+
+  const groups: Array<{ label: string; rows: Task[] }> = [
+    { label: "Daily", rows: daily },
+    { label: "Weekly", rows: weekly },
+    { label: "Monthly", rows: monthly },
+  ];
+  if (other.length) groups.push({ label: "Other", rows: other });
+
+  return (
+    <>
+      {groups.map((g) => (
+        <React.Fragment key={g.label}>
+          <tr>
+            <td className="pt-4 pb-2 text-xs font-semibold text-white/70" colSpan={8}>
+              {g.label}
+              <span className="ml-2 text-white/40">({g.rows.length})</span>
+            </td>
+          </tr>
+          {g.rows.map((t) => (
+            <tr key={t.id} className="border-b border-white/10 align-top">
+              <td className="py-2 pr-3">
+                <input
+                  className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
+                  value={t.title}
+                  onChange={(e) =>
+                    setTasks((prev) =>
+                      prev.map((x) =>
+                        x.id === t.id ? { ...x, title: e.target.value } : x
+                      )
+                    )
+                  }
+                  onBlur={(e) => void updateTask(t.id, { title: e.target.value })}
+                />
+              </td>
+              <td className="py-2 pr-3">
+                <input
+                  className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
+                  value={t.owner ?? ""}
+                  placeholder="–"
+                  onChange={(e) =>
+                    setTasks((prev) =>
+                      prev.map((x) =>
+                        x.id === t.id ? { ...x, owner: e.target.value } : x
+                      )
+                    )
+                  }
+                  onBlur={(e) => void updateTask(t.id, { owner: e.target.value || null })}
+                />
+              </td>
+              <td className="py-2 pr-3">
+                <StatusChips
+                  value={t.status}
+                  onChange={(v) => void updateTask(t.id, { status: v })}
+                />
+              </td>
+              <td className="py-2 pr-3 text-white/80">{t.estHoursPm ?? "–"}</td>
+              <td className="py-2 pr-3 text-white/80">{t.dependency ?? "–"}</td>
+              <td className="py-2 pr-3">
+                <input
+                  type="date"
+                  className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
+                  value={t.dueAt ? t.dueAt.slice(0, 10) : ""}
+                  onChange={(e) =>
+                    void updateTask(t.id, {
+                      dueAt: e.target.value ? new Date(e.target.value).toISOString() : null,
+                    })
+                  }
+                />
+              </td>
+              <td className="py-2 pr-3">
+                <input
+                  type="date"
+                  className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
+                  value={t.etaAt ? t.etaAt.slice(0, 10) : ""}
+                  onChange={(e) =>
+                    void updateTask(t.id, {
+                      etaAt: e.target.value ? new Date(e.target.value).toISOString() : null,
+                    })
+                  }
+                />
+              </td>
+              <td className="py-2 pr-3">
+                <input
+                  className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
+                  value={t.blocker ?? ""}
+                  placeholder="–"
+                  onChange={(e) =>
+                    setTasks((prev) =>
+                      prev.map((x) =>
+                        x.id === t.id ? { ...x, blocker: e.target.value } : x
+                      )
+                    )
+                  }
+                  onBlur={(e) => void updateTask(t.id, { blocker: e.target.value || null })}
+                />
+              </td>
+            </tr>
+          ))}
+        </React.Fragment>
+      ))}
+    </>
   );
 }
