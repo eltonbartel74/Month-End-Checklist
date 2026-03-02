@@ -11,6 +11,7 @@ function unauthorized() {
 
 export function middleware(req: NextRequest) {
   // Only enforce basic auth when configured.
+  // NOTE: Next.js middleware runs on the Edge runtime, so Node APIs like Buffer are not available.
   const user = process.env.BASIC_AUTH_USER;
   const pass = process.env.BASIC_AUTH_PASS;
 
@@ -20,9 +21,15 @@ export function middleware(req: NextRequest) {
   if (!header?.startsWith("Basic ")) return unauthorized();
 
   const base64Credentials = header.slice("Basic ".length);
-  const decoded = Buffer.from(base64Credentials, "base64").toString("utf8");
-  const [u, p] = decoded.split(":");
 
+  let decoded = "";
+  try {
+    decoded = atob(base64Credentials);
+  } catch {
+    return unauthorized();
+  }
+
+  const [u, p] = decoded.split(":");
   if (u !== user || p !== pass) return unauthorized();
 
   return NextResponse.next();
