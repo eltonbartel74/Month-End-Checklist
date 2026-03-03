@@ -2,30 +2,43 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const tasks = await prisma.task.findMany({
-    include: { _count: { select: { attachments: true } } },
-    orderBy: [{ createdAt: "asc" }],
-  });
+  const errorId = `tasks_get_${Date.now()}`;
+  try {
+    const tasks = await prisma.task.findMany({
+      include: { _count: { select: { attachments: true } } },
+      orderBy: [{ createdAt: "asc" }],
+    });
 
-  const freqRank = (f?: string | null) => {
-    const x = (f ?? "").toLowerCase();
-    if (x === "daily") return 1;
-    if (x === "weekly") return 2;
-    if (x === "adhoc" || x === "ad hoc" || x === "ad-hoc") return 3;
-    if (x === "monthly") return 4;
-    return 3; // treat blanks/other as Adhoc by default
-  };
+    const freqRank = (f?: string | null) => {
+      const x = (f ?? "").toLowerCase();
+      if (x === "daily") return 1;
+      if (x === "weekly") return 2;
+      if (x === "adhoc" || x === "ad hoc" || x === "ad-hoc") return 3;
+      if (x === "monthly") return 4;
+      return 3; // treat blanks/other as Adhoc by default
+    };
 
-  tasks.sort((a, b) => {
-    const r = freqRank(a.frequency) - freqRank(b.frequency);
-    if (r !== 0) return r;
-    const na = a.nextDueAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
-    const nb = b.nextDueAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
-    if (na !== nb) return na - nb;
-    return a.title.localeCompare(b.title);
-  });
+    tasks.sort((a, b) => {
+      const r = freqRank(a.frequency) - freqRank(b.frequency);
+      if (r !== 0) return r;
+      const na = a.nextDueAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const nb = b.nextDueAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      if (na !== nb) return na - nb;
+      return a.title.localeCompare(b.title);
+    });
 
-  return NextResponse.json({ tasks });
+    return NextResponse.json({ tasks });
+  } catch (err) {
+    console.error("/api/tasks GET failed", { errorId, err });
+    return NextResponse.json(
+      {
+        error:
+          "Couldn’t load tasks (server error). This is usually a database connection issue — try again in 30 seconds.",
+        errorId,
+      },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(req: Request) {

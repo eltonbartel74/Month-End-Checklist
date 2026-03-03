@@ -34,6 +34,7 @@ type Task = {
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [retrying, setRetrying] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newOwner, setNewOwner] = useState("");
   const [period, setPeriod] = useState("2026-02");
@@ -52,18 +53,42 @@ export default function Home() {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), 15_000);
 
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
     try {
-      const res = await fetch("/api/tasks", {
-        cache: "no-store",
-        signal: controller.signal,
-      });
+      // Auto-retry transient server errors (e.g., DB cold start) a few times.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) {
+          setRetrying(true);
+          // 600ms, 1200ms
+          await sleep(600 * Math.pow(2, attempt - 1));
+        }
 
-      if (!res.ok) {
-        throw new Error(`API error ${res.status}`);
+        const res = await fetch("/api/tasks", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as
+            | { error?: string; errorId?: string }
+            | null;
+          const msg = body?.error
+            ? `${body.error}${body.errorId ? ` (id: ${body.errorId})` : ""}`
+            : `API error ${res.status}`;
+
+          // Retry only for 5xx
+          if (res.status >= 500 && attempt < 2) {
+            continue;
+          }
+
+          throw new Error(msg);
+        }
+
+        const data = (await res.json()) as { tasks: Task[] };
+        setTasks(data.tasks);
+        return;
       }
-
-      const data = (await res.json()) as { tasks: Task[] };
-      setTasks(data.tasks);
     } catch (e) {
       const msg =
         e instanceof Error
@@ -73,6 +98,7 @@ export default function Home() {
           : "Failed to load tasks.";
       setError(msg);
     } finally {
+      setRetrying(false);
       clearTimeout(t);
       setLoading(false);
     }
@@ -373,7 +399,7 @@ export default function Home() {
               type="button"
               onClick={() => void refresh()}
             >
-              Retry
+              {retrying ? "Retrying…" : "Retry"}
             </button>
           </div>
         ) : null}
