@@ -3,9 +3,10 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
   // Supabase/Vercel integration vars
-  url       = env("POSTGRES_URL")
+  // Use Prisma-specific pooled URL (PgBouncer-friendly) to avoid intermittent serverless query errors.
+  url       = env("POSTGRES_PRISMA_URL")
   directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
