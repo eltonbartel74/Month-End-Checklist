@@ -530,49 +530,65 @@ function StatusChips({
   value: TaskStatus;
   onChange: (v: TaskStatus) => void;
 }) {
-  const options: Array<{ v: TaskStatus; label: string; tone: string }> = [
+  const options: Array<{
+    v: TaskStatus;
+    label: string;
+    inactive: string;
+    active: string;
+  }> = [
     {
       v: "NOT_STARTED",
       label: "Not started",
-      tone: "border-white/15 text-white/80 hover:bg-white/5",
+      inactive: "border-white/15 text-white/60 hover:bg-white/5",
+      active: "border-white/40 bg-white/15 text-white",
     },
     {
       v: "IN_PROGRESS",
       label: "In progress",
-      tone: "border-yellow-400/40 text-yellow-200 hover:bg-yellow-400/10",
+      inactive: "border-yellow-400/25 text-yellow-200/70 hover:bg-yellow-400/10",
+      active: "border-yellow-300/60 bg-yellow-400/20 text-yellow-100",
     },
     {
       v: "WAITING",
       label: "Waiting",
-      tone: "border-sky-400/40 text-sky-200 hover:bg-sky-400/10",
+      inactive: "border-sky-400/25 text-sky-200/70 hover:bg-sky-400/10",
+      active: "border-sky-300/60 bg-sky-400/20 text-sky-100",
     },
     // BLOCKED removed
     {
       v: "DONE",
       label: "Done",
-      tone: "border-emerald-400/40 text-emerald-200 hover:bg-emerald-400/10",
+      inactive: "border-emerald-400/25 text-emerald-200/70 hover:bg-emerald-400/10",
+      active: "border-emerald-300/60 bg-emerald-400/20 text-emerald-100",
     },
   ];
 
+  const current = options.find((o) => o.v === value)?.label ?? "–";
+
   return (
-    <div className="flex flex-wrap gap-1">
-      {options.map((o) => {
-        const active = o.v === value;
-        return (
-          <button
-            key={o.v}
-            type="button"
-            onClick={() => onChange(o.v)}
-            className={
-              "rounded-full border px-2 py-1 text-xs leading-none transition " +
-              (active ? `bg-white/10 ${o.tone}` : `bg-black/10 ${o.tone}`)
-            }
-            aria-pressed={active}
-          >
-            {o.label}
-          </button>
-        );
-      })}
+    <div>
+      <div className="mb-1 text-[11px] text-white/60">
+        Status: <span className="font-semibold text-white/90">{current}</span>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {options.map((o) => {
+          const active = o.v === value;
+          return (
+            <button
+              key={o.v}
+              type="button"
+              onClick={() => onChange(o.v)}
+              className={
+                "rounded-full border px-2 py-1 text-xs leading-none transition " +
+                (active ? o.active : `bg-black/10 ${o.inactive}`)
+              }
+              aria-pressed={active}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
