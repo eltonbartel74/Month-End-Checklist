@@ -39,6 +39,11 @@ export default function Home() {
   const [newOwner, setNewOwner] = useState("");
   const [period, setPeriod] = useState("2026-02");
 
+  // Filters
+  const [filterOwner, setFilterOwner] = useState<string>("ALL");
+  const [filterStatus, setFilterStatus] = useState<string>("ALL");
+  const [filterText, setFilterText] = useState<string>("");
+
   // Bulk reassignment (visible tasks)
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkOwner, setBulkOwner] = useState("");
@@ -194,6 +199,34 @@ export default function Home() {
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [tasks]);
+
+  const visibleTasks = useMemo(() => {
+    const q = filterText.trim().toLowerCase();
+
+    const matchText = (t: Task) => {
+      if (!q) return true;
+      const hay = [
+        t.title,
+        t.owner ?? "",
+        t.dependency ?? "",
+        t.blocker ?? "",
+        t.frequency ?? "",
+        t.notes ?? "",
+      ]
+        .join(" | ")
+        .toLowerCase();
+      return hay.includes(q);
+    };
+
+    return tasks.filter((t) => {
+      const ownerKey = (t.owner ?? "").trim() || "Unassigned";
+      if (filterOwner !== "ALL" && ownerKey !== filterOwner) return false;
+
+      if (filterStatus !== "ALL" && t.status !== filterStatus) return false;
+
+      return matchText(t);
+    });
+  }, [tasks, filterOwner, filterStatus, filterText]);
 
   async function createTask() {
     if (!newTitle.trim()) return;
@@ -410,6 +443,67 @@ export default function Home() {
               Tip: keep Due date for “when it should be done”, and ETA for “when
               it will be done”.
             </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <select
+                className="h-9 rounded border border-white/15 bg-black/20 px-2 text-sm outline-none"
+                value={filterOwner}
+                onChange={(e) => {
+                  setSelectedIds([]);
+                  setFilterOwner(e.target.value);
+                }}
+              >
+                <option value="ALL">All owners</option>
+                <option value="Unassigned">Unassigned</option>
+                {ownerOptions.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="h-9 rounded border border-white/15 bg-black/20 px-2 text-sm outline-none"
+                value={filterStatus}
+                onChange={(e) => {
+                  setSelectedIds([]);
+                  setFilterStatus(e.target.value);
+                }}
+              >
+                <option value="ALL">All statuses</option>
+                <option value="NOT_STARTED">Not started</option>
+                <option value="IN_PROGRESS">In progress</option>
+                <option value="WAITING">Waiting</option>
+                <option value="DONE">Done</option>
+              </select>
+
+              <input
+                className="h-9 w-[260px] rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                placeholder="Filter… (task, owner, notes, dependency, etc)"
+                value={filterText}
+                onChange={(e) => {
+                  setSelectedIds([]);
+                  setFilterText(e.target.value);
+                }}
+              />
+
+              <button
+                className="jam-btn h-9"
+                type="button"
+                onClick={() => {
+                  setSelectedIds([]);
+                  setFilterOwner("ALL");
+                  setFilterStatus("ALL");
+                  setFilterText("");
+                }}
+              >
+                Clear filters
+              </button>
+
+              <div className="text-xs text-white/60">
+                Showing <span className="font-semibold text-white/80">{visibleTasks.length}</span> of {tasks.length}
+              </div>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <input
@@ -507,12 +601,18 @@ export default function Home() {
                   <input
                     type="checkbox"
                     aria-label="Select all visible tasks"
-                    checked={tasks.length > 0 && selectedIds.length === tasks.length}
+                    checked={
+                      visibleTasks.length > 0 &&
+                      visibleTasks.every((t) => selectedIds.includes(t.id))
+                    }
                     onChange={(e) => {
                       if (e.target.checked) {
-                        setSelectedIds(tasks.map((t) => t.id));
+                        setSelectedIds(visibleTasks.map((t) => t.id));
                       } else {
-                        setSelectedIds([]);
+                        // only clear visible ids
+                        setSelectedIds((prev) =>
+                          prev.filter((id) => !visibleTasks.some((t) => t.id === id))
+                        );
                       }
                     }}
                   />
@@ -535,7 +635,7 @@ export default function Home() {
                     Loading…
                   </td>
                 </tr>
-              ) : tasks.length === 0 ? (
+              ) : visibleTasks.length === 0 ? (
                 <tr>
                   <td className="py-3 text-white/70" colSpan={10}>
                     No tasks yet.
@@ -543,7 +643,7 @@ export default function Home() {
                 </tr>
               ) : (
                 <GroupedRows
-                  tasks={tasks}
+                  tasks={visibleTasks}
                   selectedIds={selectedIds}
                   setSelectedIds={setSelectedIds}
                   updateTask={updateTaskOptimistic}
