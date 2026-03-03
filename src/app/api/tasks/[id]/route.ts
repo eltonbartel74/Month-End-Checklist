@@ -6,32 +6,34 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
+  const errorId = `task_patch_${Date.now()}`;
+  try {
+    const { id } = await params;
 
-  const body = (await req.json()) as {
-    title?: string;
-    owner?: string | null;
-    status?:
-      | "NOT_STARTED"
-      | "IN_PROGRESS"
-      | "WAITING"
-      | "BLOCKED"
-      | "DONE";
-    frequency?: string | null;
-    estHoursPm?: string | null;
-    dependency?: string | null;
+    const body = (await req.json()) as {
+      title?: string;
+      owner?: string | null;
+      status?:
+        | "NOT_STARTED"
+        | "IN_PROGRESS"
+        | "WAITING"
+        | "BLOCKED"
+        | "DONE";
+      frequency?: string | null;
+      estHoursPm?: string | null;
+      dependency?: string | null;
 
-    repeatEnabled?: boolean | null;
-    dailyTime?: string | null;
-    weeklyDays?: number[] | null;
-    monthlyDay?: number | null;
-    nextDueAt?: string | null;
+      repeatEnabled?: boolean | null;
+      dailyTime?: string | null;
+      weeklyDays?: number[] | null;
+      monthlyDay?: number | null;
+      nextDueAt?: string | null;
 
-    dueAt?: string | null;
-    etaAt?: string | null;
-    blocker?: string | null;
-    notes?: string | null;
-  };
+      dueAt?: string | null;
+      etaAt?: string | null;
+      blocker?: string | null;
+      notes?: string | null;
+    };
 
   const current = await prisma.task.findUnique({ where: { id } });
   if (!current) {
@@ -147,7 +149,18 @@ export async function PATCH(
     },
   });
 
-  return NextResponse.json({ task });
+    return NextResponse.json({ task });
+  } catch (err) {
+    console.error("/api/tasks/[id] PATCH failed", { errorId, err });
+    return NextResponse.json(
+      {
+        error:
+          "Update failed (server error). This is usually a database connection issue — try again in 30 seconds.",
+        errorId,
+      },
+      { status: 500 }
+    );
+  }
 }
 
 export async function DELETE(

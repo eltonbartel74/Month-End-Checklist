@@ -223,21 +223,43 @@ export default function Home() {
     id: string,
     patch: Partial<Task>
   ): Promise<{ ok: true; task: Task } | { ok: false; error: string }> {
-    const res = await fetch(`/api/tasks/${id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(patch),
-    });
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-    if (!res.ok) {
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      return { ok: false, error: data.error || `Update failed (${res.status})` };
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) {
+        await sleep(400 * Math.pow(2, attempt - 1));
+      }
+
+      const res = await fetch(`/api/tasks/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as
+          | { error?: string; errorId?: string }
+          | null;
+
+        // Retry only for 5xx
+        if (res.status >= 500 && attempt < 2) {
+          continue;
+        }
+
+        const msg = data?.error
+          ? `${data.error}${data.errorId ? ` (id: ${data.errorId})` : ""}`
+          : `Update failed (${res.status})`;
+
+        return { ok: false, error: msg };
+      }
+
+      const data = (await res.json().catch(() => null)) as { task?: Task } | null;
+      if (!data?.task) return { ok: false, error: "Update failed (bad response)." };
+
+      return { ok: true, task: data.task };
     }
 
-    const data = (await res.json().catch(() => null)) as { task?: Task } | null;
-    if (!data?.task) return { ok: false, error: "Update failed (bad response)." };
-
-    return { ok: true, task: data.task };
+    return { ok: false, error: "Update failed (server error)." };
   }
 
   async function updateTaskOptimistic(id: string, patch: Partial<Task>) {
