@@ -37,6 +37,10 @@ export default function Home() {
   const [newTitle, setNewTitle] = useState("");
   const [newOwner, setNewOwner] = useState("");
   const [period, setPeriod] = useState("2026-02");
+
+  // Bulk reassignment (visible tasks)
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkOwner, setBulkOwner] = useState("");
   const [closing, setClosing] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
@@ -156,6 +160,15 @@ export default function Home() {
     };
   }, [tasks, now]);
 
+  const ownerOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of tasks) {
+      const v = (t.owner ?? "").trim();
+      if (v) set.add(v);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [tasks]);
+
   async function createTask() {
     if (!newTitle.trim()) return;
     if (!newOwner.trim()) {
@@ -180,7 +193,7 @@ export default function Home() {
     await refresh();
   }
 
-  async function updateTask(id: string, patch: Partial<Task>) {
+  async function updateTask(id: string, patch: Partial<Task>): Promise<boolean> {
     const res = await fetch(`/api/tasks/${id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
@@ -190,9 +203,39 @@ export default function Home() {
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       setError(data.error || `Update failed (${res.status})`);
-      return;
+      return false;
     }
 
+    await refresh();
+    return true;
+  }
+
+  async function applyBulkOwner(ownerRaw: string) {
+    const owner = ownerRaw.trim();
+    if (selectedIds.length === 0) return;
+
+    setError(null);
+
+    // allow clearing to Unassigned via empty string
+    const patch: Partial<Task> = { owner: owner ? owner : null };
+
+    // Update sequentially, then refresh once.
+    for (const id of selectedIds) {
+      const res = await fetch(`/api/tasks/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        setError(data.error || `Bulk update failed (${res.status})`);
+        return;
+      }
+    }
+
+    setSelectedIds([]);
+    setBulkOwner("");
     await refresh();
   }
 
@@ -301,6 +344,7 @@ export default function Home() {
               className="h-10 w-[160px] rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
               placeholder="Owner…"
               value={newOwner}
+              list="owner-datalist"
               onChange={(e) => setNewOwner(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") void createTask();
@@ -334,10 +378,64 @@ export default function Home() {
           </div>
         ) : null}
 
+        {selectedIds.length > 0 ? (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded border border-white/10 bg-black/10 p-3">
+            <div className="text-sm text-white/80">
+              <span className="font-semibold">{selectedIds.length}</span> selected
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                className="h-9 w-[220px] rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                placeholder="Change owner to… (blank = Unassigned)"
+                value={bulkOwner}
+                onChange={(e) => setBulkOwner(e.target.value)}
+                list="owner-datalist"
+              />
+              <button
+                className="jam-btn jam-btn-primary h-9"
+                type="button"
+                onClick={() => void applyBulkOwner(bulkOwner)}
+              >
+                Apply
+              </button>
+              <button
+                className="jam-btn h-9"
+                type="button"
+                onClick={() => {
+                  setSelectedIds([]);
+                  setBulkOwner("");
+                }}
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        <datalist id="owner-datalist">
+          {ownerOptions.map((o) => (
+            <option key={o} value={o} />
+          ))}
+        </datalist>
+
         <div className="mt-4 overflow-x-auto">
           <table className="w-full border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-white/10 text-xs text-white/70">
+                <th className="py-2 pr-3">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all visible tasks"
+                    checked={tasks.length > 0 && selectedIds.length === tasks.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedIds(tasks.map((t) => t.id));
+                      } else {
+                        setSelectedIds([]);
+                      }
+                    }}
+                  />
+                </th>
                 <th className="py-2 pr-3">Task</th>
                 <th className="py-2 pr-3">Owner</th>
                 <th className="py-2 pr-3">Status</th>
@@ -352,19 +450,21 @@ export default function Home() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="py-3 text-white/70" colSpan={9}>
+                  <td className="py-3 text-white/70" colSpan={10}>
                     Loading…
                   </td>
                 </tr>
               ) : tasks.length === 0 ? (
                 <tr>
-                  <td className="py-3 text-white/70" colSpan={9}>
+                  <td className="py-3 text-white/70" colSpan={10}>
                     No tasks yet.
                   </td>
                 </tr>
               ) : (
                 <GroupedRows
                   tasks={tasks}
+                  selectedIds={selectedIds}
+                  setSelectedIds={setSelectedIds}
                   updateTask={updateTask}
                   setTasks={setTasks}
                   onUpload={async (taskId, file) => {
@@ -612,82 +712,110 @@ function OwnerAccordion({ tasks, period }: { tasks: Task[]; period: string }) {
 
   if (rows.length === 0) return null;
 
+  const totals = rows.reduce(
+    (acc, r) => {
+      acc.total += r.total;
+      acc.done += r.done;
+      acc.overdue += r.overdue;
+      return acc;
+    },
+    { total: 0, done: 0, overdue: 0 }
+  );
+
   return (
-    <div className="mt-4 rounded border border-white/10 bg-black/10 p-3">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <div className="text-sm font-semibold">By owner</div>
-          <div className="text-xs text-white/60">
-            Workload % uses {period} SA business days (daily = hrs × business days;
-            weekly skips public holidays).
+    <details className="mt-4 rounded border border-white/10 bg-black/10">
+      <summary className="cursor-pointer list-none p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div className="text-sm font-semibold">By owner</div>
+            <div className="text-xs text-white/60">
+              Owners: {rows.length} • Total: {totals.total} • Done: {totals.done} • Overdue: {totals.overdue}
+            </div>
           </div>
+          <div className="text-xs text-white/60">Show / hide</div>
+        </div>
+      </summary>
+
+      <div className="px-3 pb-3">
+        <div className="text-xs text-white/60">
+          Workload % uses {period} SA business days (daily = hrs × business days; weekly skips public holidays).
+        </div>
+
+        <div className="mt-2 space-y-2">
+          {rows.map((r) => {
+            const workloadPct =
+              !r.workloadMissing && totalWorkload > 0
+                ? r.workloadHours / totalWorkload
+                : null;
+
+            return (
+              <details
+                key={r.owner}
+                className="rounded border border-white/10 bg-black/10 px-3 py-2"
+              >
+                <summary className="cursor-pointer list-none">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="font-semibold">{r.owner}</div>
+                    <div className="flex flex-wrap gap-3 text-xs text-white/70">
+                      <span>Total: {r.total}</span>
+                      <span>Done: {r.done}</span>
+                      <span>Overdue: {r.overdue}</span>
+                      <span>
+                        On-time: {r.onTimePct === null ? "–" : `${Math.round(r.onTimePct * 100)}%`}
+                      </span>
+                      <span>
+                        Workload: {workloadPct === null ? "Fill hrs" : `${Math.round(workloadPct * 100)}%`}
+                      </span>
+                    </div>
+                  </div>
+                </summary>
+
+                <div className="mt-3 text-sm text-white/80">
+                  {r.tasks
+                    .slice()
+                    .sort((a, b) => a.title.localeCompare(b.title))
+                    .map((t) => (
+                      <div
+                        key={t.id}
+                        className="flex items-start justify-between gap-3 border-t border-white/10 py-2"
+                      >
+                        <div>
+                          <div className="font-medium">{t.title}</div>
+                          <div className="text-xs text-white/60">
+                            {(t.frequency ?? "").toLowerCase()} • {t.status.toLowerCase().replaceAll("_", " ")}
+                          </div>
+                        </div>
+                        <div className="text-xs text-white/60">Hrs: {t.estHoursPm ?? "–"}</div>
+                      </div>
+                    ))}
+                </div>
+              </details>
+            );
+          })}
         </div>
       </div>
-
-      <div className="mt-2 space-y-2">
-        {rows.map((r) => {
-          const workloadPct =
-            !r.workloadMissing && totalWorkload > 0
-              ? r.workloadHours / totalWorkload
-              : null;
-
-          return (
-            <details
-              key={r.owner}
-              className="rounded border border-white/10 bg-black/10 px-3 py-2"
-            >
-              <summary className="cursor-pointer list-none">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="font-semibold">{r.owner}</div>
-                  <div className="flex flex-wrap gap-3 text-xs text-white/70">
-                    <span>Total: {r.total}</span>
-                    <span>Done: {r.done}</span>
-                    <span>Overdue: {r.overdue}</span>
-                    <span>
-                      On-time: {r.onTimePct === null ? "–" : `${Math.round(r.onTimePct * 100)}%`}
-                    </span>
-                    <span>
-                      Workload: {workloadPct === null ? "Fill hrs" : `${Math.round(workloadPct * 100)}%`}
-                    </span>
-                  </div>
-                </div>
-              </summary>
-
-              <div className="mt-3 text-sm text-white/80">
-                {r.tasks
-                  .slice()
-                  .sort((a, b) => a.title.localeCompare(b.title))
-                  .map((t) => (
-                    <div key={t.id} className="flex items-start justify-between gap-3 border-t border-white/10 py-2">
-                      <div>
-                        <div className="font-medium">{t.title}</div>
-                        <div className="text-xs text-white/60">
-                          {(t.frequency ?? "").toLowerCase()} • {t.status.toLowerCase().replaceAll("_", " ")}
-                        </div>
-                      </div>
-                      <div className="text-xs text-white/60">Hrs: {t.estHoursPm ?? "–"}</div>
-                    </div>
-                  ))}
-              </div>
-            </details>
-          );
-        })}
-      </div>
-    </div>
+    </details>
   );
 }
 
 function GroupedRows({
   tasks,
+  selectedIds,
+  setSelectedIds,
   updateTask,
   setTasks,
   onUpload,
 }: {
   tasks: Task[];
-  updateTask: (id: string, patch: Partial<Task>) => Promise<void>;
+  selectedIds: string[];
+  setSelectedIds: React.Dispatch<React.SetStateAction<string[]>>;
+  updateTask: (id: string, patch: Partial<Task>) => Promise<boolean>;
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
   onUpload: (taskId: string, file: File) => Promise<void>;
 }) {
+  const [savingOwnerIds, setSavingOwnerIds] = useState<Set<string>>(() => new Set());
+  const [savedOwnerIds, setSavedOwnerIds] = useState<Set<string>>(() => new Set());
+
   const fx = (t: Task) => (t.frequency ?? "").toLowerCase();
   const daily = tasks.filter((t) => fx(t) === "daily");
   const weekly = tasks.filter((t) => fx(t) === "weekly");
@@ -709,18 +837,37 @@ function GroupedRows({
     { label: "Monthly", rows: monthly },
   ];
 
+  const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
+
+  const toggleOne = (id: string, on: boolean) => {
+    setSelectedIds((prev) => {
+      const s = new Set(prev);
+      if (on) s.add(id);
+      else s.delete(id);
+      return Array.from(s);
+    });
+  };
+
   return (
     <>
       {groups.map((g) => (
         <React.Fragment key={g.label}>
           <tr>
-            <td className="pt-4 pb-2 text-xs font-semibold text-white/70" colSpan={9}>
+            <td className="pt-4 pb-2 text-xs font-semibold text-white/70" colSpan={10}>
               {g.label}
               <span className="ml-2 text-white/40">({g.rows.length})</span>
             </td>
           </tr>
           {g.rows.map((t) => (
             <tr key={t.id} className="border-b border-white/10 align-top">
+              <td className="py-2 pr-3">
+                <input
+                  type="checkbox"
+                  aria-label={`Select task ${t.title}`}
+                  checked={selected.has(t.id)}
+                  onChange={(e) => toggleOne(t.id, e.target.checked)}
+                />
+              </td>
               <td className="py-2 pr-3">
                 <input
                   className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
@@ -739,7 +886,8 @@ function GroupedRows({
                 <input
                   className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
                   value={t.owner ?? ""}
-                  placeholder="–"
+                  placeholder="Unassigned"
+                  list="owner-datalist"
                   onChange={(e) =>
                     setTasks((prev) =>
                       prev.map((x) =>
@@ -747,8 +895,55 @@ function GroupedRows({
                       )
                     )
                   }
-                  onBlur={(e) => void updateTask(t.id, { owner: e.target.value || null })}
+                  onBlur={async (e) => {
+                    const next = e.target.value.trim() ? e.target.value : null;
+
+                    // clear any previous “Saved” flash
+                    setSavedOwnerIds((prev) => {
+                      const s = new Set(prev);
+                      s.delete(t.id);
+                      return s;
+                    });
+
+                    setSavingOwnerIds((prev) => {
+                      const s = new Set(prev);
+                      s.add(t.id);
+                      return s;
+                    });
+
+                    const ok = await updateTask(t.id, { owner: next });
+
+                    setSavingOwnerIds((prev) => {
+                      const s = new Set(prev);
+                      s.delete(t.id);
+                      return s;
+                    });
+
+                    if (ok) {
+                      setSavedOwnerIds((prev) => {
+                        const s = new Set(prev);
+                        s.add(t.id);
+                        return s;
+                      });
+                      setTimeout(() => {
+                        setSavedOwnerIds((prev) => {
+                          const s = new Set(prev);
+                          s.delete(t.id);
+                          return s;
+                        });
+                      }, 1200);
+                    }
+                  }}
                 />
+                <div className="mt-1 text-[11px]">
+                  {savingOwnerIds.has(t.id) ? (
+                    <span className="text-white/60">Saving…</span>
+                  ) : savedOwnerIds.has(t.id) ? (
+                    <span className="text-emerald-200/80">Saved</span>
+                  ) : (
+                    <span className="text-white/0">.</span>
+                  )}
+                </div>
               </td>
               <td className="py-2 pr-3">
                 <StatusChips
