@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { isBusinessDay } from "@/lib/schedule";
+import { isBusinessDay, isSaPublicHoliday } from "@/lib/schedule";
 import { uploadWorkingPaper } from "@/app/uploadWorkingPaper";
 
 type TaskStatus = "NOT_STARTED" | "IN_PROGRESS" | "WAITING" | "BLOCKED" | "DONE";
@@ -230,15 +230,16 @@ export default function Home() {
 
   async function createTask() {
     if (!newTitle.trim()) return;
-    if (!newOwner.trim()) {
-      setError("Owner is required.");
-      return;
-    }
+
+    const owner = newOwner.trim();
 
     const res = await fetch("/api/tasks", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title: newTitle.trim(), owner: newOwner.trim() }),
+      body: JSON.stringify({
+        title: newTitle.trim(),
+        owner: owner ? owner : null,
+      }),
     });
 
     if (!res.ok) {
@@ -690,11 +691,41 @@ function dayLabel(n: number) {
   )[n] ?? String(n);
 }
 
+function isoDayLocal(d: Date) {
+  const js = d.getDay(); // 0 Sun .. 6 Sat
+  return js === 0 ? 7 : js;
+}
+
+function startOfDayLocal(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function nextIsoWeekdayLocal(targetIsoDay: number, from = new Date()) {
+  const d0 = startOfDayLocal(from);
+  const cur = isoDayLocal(d0);
+  const delta = (targetIsoDay - cur + 7) % 7; // 0..6
+  const cand = new Date(d0);
+  cand.setDate(cand.getDate() + delta);
+  return cand;
+}
+
 function formatSchedule(t: Task) {
   const f = (t.frequency ?? "").toLowerCase();
   if (f === "weekly") {
-    const days = (t.weeklyDays ?? []).map(dayLabel).join(", ");
+    const daysRaw = (t.weeklyDays ?? []).filter((x) => x >= 1 && x <= 7);
     const time = t.dailyTime ? ` ${t.dailyTime}` : "";
+
+    // Display-only rule: if it's a Monday-only weekly task and Monday is a SA public holiday,
+    // show Tuesday instead.
+    if (daysRaw.length === 1 && daysRaw[0] === 1) {
+      const nextMon = nextIsoWeekdayLocal(1);
+      if (isSaPublicHoliday(nextMon)) {
+        return `Tue${time} (Mon public holiday)`;
+      }
+      return `Mon${time}`;
+    }
+
+    const days = daysRaw.map(dayLabel).join(", ");
     return `${days}${time}`;
   }
   if (f === "daily") {
@@ -1191,14 +1222,9 @@ function GroupedRows({
               </td>
               <td className="py-2 pr-3 text-white/80">{t.dependency ?? "–"}</td>
               <td className="py-2 pr-3">
-                {((t.frequency ?? "").toLowerCase() === "weekly" &&
-                  t.weeklyDays?.length) ||
-                (((t.frequency ?? "").toLowerCase() === "weekly" ||
-                  (t.frequency ?? "").toLowerCase() === "daily") &&
-                  t.dailyTime) ? (
-                  <div className="text-white/80">
-                    {formatSchedule(t)}
-                  </div>
+                {((t.frequency ?? "").toLowerCase() === "daily" ||
+                  (t.frequency ?? "").toLowerCase() === "weekly") ? (
+                  <div className="text-white/80">{formatSchedule(t) || "–"}</div>
                 ) : (
                   <input
                     type="date"
@@ -1215,16 +1241,23 @@ function GroupedRows({
                 )}
               </td>
               <td className="py-2 pr-3">
-                <input
-                  type="date"
-                  className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
-                  value={t.etaAt ? t.etaAt.slice(0, 10) : ""}
-                  onChange={(e) =>
-                    void updateTask(t.id, {
-                      etaAt: e.target.value ? new Date(e.target.value).toISOString() : null,
-                    })
-                  }
-                />
+                {((t.frequency ?? "").toLowerCase() === "daily" ||
+                  (t.frequency ?? "").toLowerCase() === "weekly") ? (
+                  <div className="text-white/60">–</div>
+                ) : (
+                  <input
+                    type="date"
+                    className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
+                    value={t.etaAt ? t.etaAt.slice(0, 10) : ""}
+                    onChange={(e) =>
+                      void updateTask(t.id, {
+                        etaAt: e.target.value
+                          ? new Date(e.target.value).toISOString()
+                          : null,
+                      })
+                    }
+                  />
+                )}
               </td>
               <td className="py-2 pr-3">
                 <input

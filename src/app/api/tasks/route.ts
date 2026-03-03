@@ -68,14 +68,12 @@ export async function POST(req: Request) {
   if (!body.title?.trim()) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
   }
-  if (!body.owner?.trim()) {
-    return NextResponse.json({ error: "Owner is required" }, { status: 400 });
-  }
+  const owner = body.owner?.trim() ?? "";
 
   const task = await prisma.task.create({
     data: {
       title: body.title.trim(),
-      owner: body.owner.trim(),
+      owner: owner ? owner : null,
       status: body.status ?? "NOT_STARTED",
       frequency: body.frequency?.trim() || null,
       estHoursPm: body.estHoursPm?.trim() || null,
