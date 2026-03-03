@@ -696,18 +696,28 @@ function Kpi({ label, value }: { label: string; value: string }) {
   );
 }
 
-function dayLabel(n: number) {
+function dayLabelLong(n: number) {
   return (
     {
-      1: "Mon",
-      2: "Tue",
-      3: "Wed",
-      4: "Thu",
-      5: "Fri",
-      6: "Sat",
-      7: "Sun",
+      1: "Monday",
+      2: "Tuesday",
+      3: "Wednesday",
+      4: "Thursday",
+      5: "Friday",
+      6: "Saturday",
+      7: "Sunday",
     } as Record<number, string>
   )[n] ?? String(n);
+}
+
+function formatTime12h(hhmm: string) {
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(hhmm.trim());
+  if (!m) return hhmm;
+  const h = Number(m[1]);
+  const mm = m[2];
+  const suffix = h >= 12 ? "pm" : "am";
+  const h12 = ((h + 11) % 12) + 1;
+  return mm === "00" ? `${h12}${suffix}` : `${h12}:${mm}${suffix}`;
 }
 
 function isoDayLocal(d: Date) {
@@ -732,19 +742,19 @@ function formatSchedule(t: Task) {
   const f = (t.frequency ?? "").toLowerCase();
   if (f === "weekly") {
     const daysRaw = (t.weeklyDays ?? []).filter((x) => x >= 1 && x <= 7);
-    const time = t.dailyTime ? ` ${t.dailyTime}` : "";
+    const time = t.dailyTime ? ` ${formatTime12h(t.dailyTime)}` : "";
 
     // Display-only rule: if it's a Monday-only weekly task and Monday is a SA public holiday,
     // show Tuesday instead.
     if (daysRaw.length === 1 && daysRaw[0] === 1) {
       const nextMon = nextIsoWeekdayLocal(1);
       if (isSaPublicHoliday(nextMon)) {
-        return `Tue${time} (Mon public holiday)`;
+        return `Tuesday${time} (Mon public holiday)`;
       }
-      return `Mon${time}`;
+      return `Monday${time}`;
     }
 
-    const days = daysRaw.map(dayLabel).join(", ");
+    const days = daysRaw.map(dayLabelLong).join(", ");
     return `${days}${time}`;
   }
   if (f === "daily") {
@@ -1252,9 +1262,40 @@ function GroupedRows({
               </td>
               <td className="py-2 pr-3 text-white/80">{t.dependency ?? "–"}</td>
               <td className="py-2 pr-3">
-                {((t.frequency ?? "").toLowerCase() === "daily" ||
-                  (t.frequency ?? "").toLowerCase() === "weekly") ? (
+                {(t.frequency ?? "").toLowerCase() === "daily" ? (
                   <div className="text-white/80">{formatSchedule(t) || "–"}</div>
+                ) : (t.frequency ?? "").toLowerCase() === "weekly" ? (
+                  (t.weeklyDays?.length || t.dailyTime) ? (
+                    <div className="text-white/80">{formatSchedule(t) || "–"}</div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        className="h-8 rounded border border-white/10 bg-black/10 px-2 text-sm"
+                        defaultValue={""}
+                        onChange={(e) => {
+                          const v = Number(e.target.value);
+                          if (!Number.isFinite(v)) return;
+                          void updateTask(t.id, { weeklyDays: [v] });
+                        }}
+                      >
+                        <option value="">Set day…</option>
+                        <option value={1}>Monday</option>
+                        <option value={2}>Tuesday</option>
+                        <option value={3}>Wednesday</option>
+                        <option value={4}>Thursday</option>
+                        <option value={5}>Friday</option>
+                      </select>
+                      <input
+                        type="time"
+                        className="h-8 rounded border border-white/10 bg-black/10 px-2 text-sm"
+                        onBlur={(e) => {
+                          const v = e.target.value?.trim();
+                          if (!v) return;
+                          void updateTask(t.id, { dailyTime: v });
+                        }}
+                      />
+                    </div>
+                  )
                 ) : (
                   <input
                     type="date"
