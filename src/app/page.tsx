@@ -851,9 +851,9 @@ function OwnerAccordion({ tasks, period }: { tasks: Task[]; period: string }) {
                 className="rounded border border-white/10 bg-black/10 px-3 py-2"
               >
                 <summary className="cursor-pointer list-none">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
                     <div className="font-semibold">{r.owner}</div>
-                    <div className="flex flex-wrap gap-3 text-xs text-white/70">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/70 sm:ml-6">
                       <span>Total: {r.total}</span>
                       <span>Done: {r.done}</span>
                       <span>Overdue: {r.overdue}</span>
