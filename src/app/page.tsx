@@ -6,6 +6,12 @@ import { uploadWorkingPaper } from "@/app/uploadWorkingPaper";
 
 type TaskStatus = "NOT_STARTED" | "IN_PROGRESS" | "WAITING" | "BLOCKED" | "DONE";
 
+type ApprovalStatus =
+  | "NOT_SUBMITTED"
+  | "SUBMITTED"
+  | "CHANGES_REQUESTED"
+  | "APPROVED";
+
 type Task = {
   id: string;
   title: string;
@@ -26,6 +32,11 @@ type Task = {
   etaAt: string | null;
   blocker: string | null;
   notes: string | null;
+  approvalStatus?: ApprovalStatus;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  reviewNotes?: string | null;
+
   updatedAt: string;
 
   _count?: { attachments: number };
@@ -1078,6 +1089,16 @@ function OwnerAccordion({ tasks, period }: { tasks: Task[]; period: string }) {
   );
 }
 
+type Attachment = {
+  id: string;
+  taskId: string;
+  url: string;
+  filename: string;
+  contentType: string | null;
+  sizeBytes: number | null;
+  createdAt: string;
+};
+
 function GroupedRows({
   tasks,
   selectedIds,
@@ -1098,6 +1119,13 @@ function GroupedRows({
   const [savingOwnerIds, setSavingOwnerIds] = useState<Set<string>>(() => new Set());
   const [savedOwnerIds, setSavedOwnerIds] = useState<Set<string>>(() => new Set());
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+
+  const [wpTask, setWpTask] = useState<Task | null>(null);
+  const [wpLoading, setWpLoading] = useState(false);
+  const [wpError, setWpError] = useState<string | null>(null);
+  const [wpAttachments, setWpAttachments] = useState<Attachment[]>([]);
+  const [reviewerName, setReviewerName] = useState("Elt");
+  const [reviewNotes, setReviewNotes] = useState("");
 
   const fx = (t: Task) => (t.frequency ?? "").toLowerCase();
   const daily = tasks.filter((t) => fx(t) === "daily");
@@ -1131,8 +1159,188 @@ function GroupedRows({
     });
   };
 
+  async function openWp(task: Task) {
+    setWpTask(task);
+    setWpError(null);
+    setWpLoading(true);
+    setWpAttachments([]);
+    setReviewNotes(task.reviewNotes ?? "");
+    setReviewerName(task.reviewedBy ?? "Elt");
+
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/attachments`, { cache: "no-store" });
+      const data = (await res.json().catch(() => null)) as
+        | { attachments?: Attachment[]; error?: string }
+        | null;
+      if (!res.ok) {
+        throw new Error(data?.error || `Failed to load attachments (${res.status})`);
+      }
+      setWpAttachments(data?.attachments ?? []);
+    } catch (e) {
+      setWpError(e instanceof Error ? e.message : "Failed to load attachments.");
+    } finally {
+      setWpLoading(false);
+    }
+  }
+
+  const isMonthly = (t: Task) => (t.frequency ?? "").toLowerCase() === "monthly";
+
   return (
     <>
+      {wpTask ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-3xl rounded border border-white/15 bg-slate-950 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold">Working papers</div>
+                <div className="mt-1 text-xs text-white/60">
+                  {wpTask.title} • {wpTask.owner ?? "Unassigned"}
+                </div>
+              </div>
+              <button className="jam-btn h-9" type="button" onClick={() => setWpTask(null)}>
+                Close
+              </button>
+            </div>
+
+            {isMonthly(wpTask) ? (
+              <div className="mt-4 rounded border border-white/10 bg-black/10 p-3">
+                <div className="text-xs text-white/60">Approval (monthly tasks)</div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <div className="text-xs text-white/70">
+                    Status: <span className="font-semibold text-white/80">{wpTask.approvalStatus ?? "NOT_SUBMITTED"}</span>
+                  </div>
+                  <input
+                    className="h-9 w-[180px] rounded border border-white/10 bg-black/10 px-2 text-sm"
+                    value={reviewerName}
+                    onChange={(e) => setReviewerName(e.target.value)}
+                    placeholder="Reviewer"
+                  />
+                </div>
+                <textarea
+                  className="mt-2 w-full rounded border border-white/10 bg-black/10 p-2 text-sm"
+                  rows={3}
+                  value={reviewNotes}
+                  onChange={(e) => setReviewNotes(e.target.value)}
+                  placeholder="Review notes / changes required…"
+                />
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    className="jam-btn jam-btn-primary h-9"
+                    type="button"
+                    onClick={async () => {
+                      await updateTask(wpTask.id, {
+                        approvalStatus: "APPROVED",
+                        reviewedBy: reviewerName || null,
+                        reviewedAt: new Date().toISOString(),
+                        reviewNotes: reviewNotes || null,
+                      });
+                      setWpTask((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              approvalStatus: "APPROVED",
+                              reviewedBy: reviewerName || null,
+                              reviewedAt: new Date().toISOString(),
+                              reviewNotes: reviewNotes || null,
+                            }
+                          : prev
+                      );
+                    }}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    className="jam-btn h-9"
+                    type="button"
+                    onClick={async () => {
+                      await updateTask(wpTask.id, {
+                        approvalStatus: "CHANGES_REQUESTED",
+                        reviewedBy: reviewerName || null,
+                        reviewedAt: new Date().toISOString(),
+                        reviewNotes: reviewNotes || null,
+                      });
+                      setWpTask((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              approvalStatus: "CHANGES_REQUESTED",
+                              reviewedBy: reviewerName || null,
+                              reviewedAt: new Date().toISOString(),
+                              reviewNotes: reviewNotes || null,
+                            }
+                          : prev
+                      );
+                    }}
+                  >
+                    Request changes
+                  </button>
+                  <button
+                    className="jam-btn h-9"
+                    type="button"
+                    onClick={async () => {
+                      await updateTask(wpTask.id, {
+                        approvalStatus: "SUBMITTED",
+                        reviewedBy: null,
+                        reviewedAt: null,
+                      });
+                      setWpTask((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              approvalStatus: "SUBMITTED",
+                              reviewedBy: null,
+                              reviewedAt: null,
+                            }
+                          : prev
+                      );
+                    }}
+                    title="Reset to Submitted"
+                  >
+                    Mark submitted
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="mt-4">
+              {wpLoading ? (
+                <div className="text-sm text-white/70">Loading…</div>
+              ) : wpError ? (
+                <div className="text-sm text-red-200/80">{wpError}</div>
+              ) : wpAttachments.length === 0 ? (
+                <div className="text-sm text-white/60">No working papers uploaded.</div>
+              ) : (
+                <div className="space-y-2">
+                  {wpAttachments.map((a) => (
+                    <div
+                      key={a.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded border border-white/10 bg-black/10 p-2"
+                    >
+                      <div>
+                        <div className="text-sm text-white/85">{a.filename}</div>
+                        <div className="text-xs text-white/50">
+                          {new Date(a.createdAt).toLocaleString()}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <a
+                          className="jam-btn h-9"
+                          href={a.url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Open
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {groups.map((g) => (
         <React.Fragment key={g.label}>
           <tr>
@@ -1257,6 +1465,16 @@ function GroupedRows({
                       }}
                     />
                   </label>
+
+                  <button
+                    type="button"
+                    className="jam-btn h-8 px-3 text-xs"
+                    onClick={() => void openWp(t)}
+                    disabled={!t._count?.attachments}
+                    title={t._count?.attachments ? "View working papers" : "No working papers"}
+                  >
+                    View
+                  </button>
 
                   <button
                     type="button"

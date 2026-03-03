@@ -81,6 +81,19 @@ export async function POST(
     },
   });
 
+  // If this is a monthly task, uploading a WP moves it into "Submitted" (display-only workflow).
+  const task = await prisma.task.findUnique({ where: { id } });
+  if ((task?.frequency ?? "").toLowerCase() === "monthly") {
+    await prisma.task.update({
+      where: { id },
+      data: {
+        approvalStatus: "SUBMITTED",
+        reviewedAt: null,
+        // keep reviewedBy/reviewNotes (so you can see prior feedback), but it’s now resubmitted.
+      },
+    });
+  }
+
   return NextResponse.json({ attachment }, { status: 201 });
 }
 

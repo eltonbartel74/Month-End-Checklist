@@ -18,6 +18,13 @@ enum TaskStatus {
   DONE
 }
 
+enum ApprovalStatus {
+  NOT_SUBMITTED
+  SUBMITTED
+  CHANGES_REQUESTED
+  APPROVED
+}
+
 model Task {
   id          String     @id @default(cuid())
   period      String?    // e.g. "2026-02" (optional for now)
@@ -44,6 +51,12 @@ model Task {
   notes       String?
 
   attachments Attachment[]
+
+  // Working paper approval (monthly tasks)
+  approvalStatus ApprovalStatus @default(NOT_SUBMITTED)
+  reviewedBy     String?
+  reviewedAt     DateTime?
+  reviewNotes    String?
 
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt

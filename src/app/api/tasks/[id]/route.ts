@@ -33,6 +33,11 @@ export async function PATCH(
       etaAt?: string | null;
       blocker?: string | null;
       notes?: string | null;
+
+      approvalStatus?: "NOT_SUBMITTED" | "SUBMITTED" | "CHANGES_REQUESTED" | "APPROVED" | null;
+      reviewedBy?: string | null;
+      reviewedAt?: string | null;
+      reviewNotes?: string | null;
     };
 
   const current = await prisma.task.findUnique({ where: { id } });
@@ -146,6 +151,21 @@ export async function PATCH(
             : undefined,
       blocker: body.blocker === null ? null : body.blocker?.trim(),
       notes: body.notes === null ? null : body.notes?.trim(),
+
+      approvalStatus:
+        body.approvalStatus === null
+          ? undefined
+          : body.approvalStatus
+            ? body.approvalStatus
+            : undefined,
+      reviewedBy: body.reviewedBy === null ? null : body.reviewedBy?.trim(),
+      reviewedAt:
+        body.reviewedAt === null
+          ? null
+          : body.reviewedAt
+            ? new Date(body.reviewedAt)
+            : undefined,
+      reviewNotes: body.reviewNotes === null ? null : body.reviewNotes?.trim(),
     },
   });
 
