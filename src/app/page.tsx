@@ -1127,10 +1127,11 @@ function GroupedRows({
                   onChange={(e) => toggleOne(t.id, e.target.checked)}
                 />
               </td>
-              <td className="py-2 pr-3">
+              <td className="py-2 pr-3 relative">
                 <input
-                  className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
+                  className="w-full min-w-0 rounded border border-white/10 bg-black/10 px-2 py-1 overflow-hidden text-ellipsis whitespace-nowrap focus:absolute focus:left-0 focus:top-0 focus:z-20 focus:w-[520px] focus:bg-black/60 focus:shadow-lg"
                   value={t.title}
+                  title={t.title}
                   onChange={(e) =>
                     setTasks((prev) =>
                       prev.map((x) =>
