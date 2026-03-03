@@ -219,7 +219,10 @@ export default function Home() {
     await refresh();
   }
 
-  async function updateTask(id: string, patch: Partial<Task>): Promise<boolean> {
+  async function updateTaskServer(
+    id: string,
+    patch: Partial<Task>
+  ): Promise<{ ok: true; task: Task } | { ok: false; error: string }> {
     const res = await fetch(`/api/tasks/${id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
@@ -228,11 +231,40 @@ export default function Home() {
 
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
-      setError(data.error || `Update failed (${res.status})`);
+      return { ok: false, error: data.error || `Update failed (${res.status})` };
+    }
+
+    const data = (await res.json().catch(() => null)) as { task?: Task } | null;
+    if (!data?.task) return { ok: false, error: "Update failed (bad response)." };
+
+    return { ok: true, task: data.task };
+  }
+
+  async function updateTaskOptimistic(id: string, patch: Partial<Task>) {
+    setError(null);
+
+    // Snapshot current row for rollback.
+    let before: Task | null = null;
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.id !== id) return t;
+        before = t;
+        return { ...t, ...patch };
+      })
+    );
+
+    const res = await updateTaskServer(id, patch);
+    if (!res.ok) {
+      // rollback
+      if (before) {
+        setTasks((prev) => prev.map((t) => (t.id === id ? before! : t)));
+      }
+      setError(res.error);
       return false;
     }
 
-    await refresh();
+    // Merge canonical server copy (e.g. rolled fields).
+    setTasks((prev) => prev.map((t) => (t.id === id ? res.task : t)));
     return true;
   }
 
@@ -245,24 +277,25 @@ export default function Home() {
     // allow clearing to Unassigned via empty string
     const patch: Partial<Task> = { owner: owner ? owner : null };
 
-    // Update sequentially, then refresh once.
-    for (const id of selectedIds) {
-      const res = await fetch(`/api/tasks/${id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(patch),
-      });
+    // Optimistically update UI first (no jump)
+    setTasks((prev) =>
+      prev.map((t) => (selectedIds.includes(t.id) ? { ...t, ...patch } : t))
+    );
 
+    // Update sequentially to keep db happy.
+    for (const id of selectedIds) {
+      const res = await updateTaskServer(id, patch);
       if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        setError(data.error || `Bulk update failed (${res.status})`);
+        setError(res.error);
+        // reconcile by reloading from server
+        await refresh();
         return;
       }
+      setTasks((prev) => prev.map((t) => (t.id === id ? res.task : t)));
     }
 
     setSelectedIds([]);
     setBulkOwner("");
-    await refresh();
   }
 
   async function closeMonth() {
@@ -491,7 +524,7 @@ export default function Home() {
                   tasks={tasks}
                   selectedIds={selectedIds}
                   setSelectedIds={setSelectedIds}
-                  updateTask={updateTask}
+                  updateTask={updateTaskOptimistic}
                   setTasks={setTasks}
                   onUpload={async (taskId, file) => {
                     try {
