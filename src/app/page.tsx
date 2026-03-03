@@ -166,16 +166,21 @@ export default function Home() {
     const monthlyMissingHours = monthlyHours.some((h) => h === null);
 
     let monthlyWeightedPct: number | null = null;
+    let monthlyTotalHours: number | null = null;
+    let monthlyDoneHours: number | null = null;
+
     if (!monthlyMissingHours && monthly.length > 0) {
       const totalHrs = monthly.reduce(
-        (acc, t, i) => acc + (monthlyHours[i] ?? 0),
+        (acc, _t, i) => acc + (monthlyHours[i] ?? 0),
         0
       );
       const doneHrs = monthly.reduce(
-        (acc, t, i) =>
-          acc + (t.status === "DONE" ? (monthlyHours[i] ?? 0) : 0),
+        (acc, t, i) => acc + (t.status === "DONE" ? (monthlyHours[i] ?? 0) : 0),
         0
       );
+
+      monthlyTotalHours = totalHrs;
+      monthlyDoneHours = doneHrs;
       monthlyWeightedPct = totalHrs > 0 ? doneHrs / totalHrs : null;
     }
 
@@ -187,6 +192,8 @@ export default function Home() {
       done,
       onTimePct,
       monthlyWeightedPct,
+      monthlyTotalHours,
+      monthlyDoneHours,
       monthlyMissingHours,
     };
   }, [tasks, now]);
@@ -425,7 +432,7 @@ export default function Home() {
 
       <div className="rounded-md border border-white/10 bg-white/5 p-4">
         <div className="text-sm text-white/80">KPIs (live)</div>
-        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-7">
+        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-9">
           <Kpi label="Total" value={String(kpis.total)} />
           <Kpi label="Overdue" value={String(kpis.overdue)} />
           <Kpi label="Due next 7 days" value={String(kpis.dueNext7)} />
@@ -437,6 +444,26 @@ export default function Home() {
               kpis.onTimePct === null
                 ? "–"
                 : `${Math.round(kpis.onTimePct * 100)}%`
+            }
+          />
+          <Kpi
+            label="Monthly hrs (total)"
+            value={
+              kpis.monthlyMissingHours
+                ? "Fill hrs"
+                : kpis.monthlyTotalHours === null
+                  ? "–"
+                  : String(Math.round(kpis.monthlyTotalHours * 10) / 10)
+            }
+          />
+          <Kpi
+            label="Monthly hrs (done)"
+            value={
+              kpis.monthlyMissingHours
+                ? "Fill hrs"
+                : kpis.monthlyDoneHours === null
+                  ? "–"
+                  : String(Math.round(kpis.monthlyDoneHours * 10) / 10)
             }
           />
           <Kpi
