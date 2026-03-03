@@ -253,6 +253,24 @@ export default function Home() {
     await refresh();
   }
 
+  async function deleteTask(id: string, title: string) {
+    const ok = window.confirm(`Delete task “${title}”? This can’t be undone.`);
+    if (!ok) return;
+
+    setError(null);
+
+    // optimistic remove
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    setSelectedIds((prev) => prev.filter((x) => x !== id));
+
+    const res = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      setError(data?.error || `Delete failed (${res.status})`);
+      await refresh();
+    }
+  }
+
   async function updateTaskServer(
     id: string,
     patch: Partial<Task>
@@ -648,6 +666,7 @@ export default function Home() {
                   selectedIds={selectedIds}
                   setSelectedIds={setSelectedIds}
                   updateTask={updateTaskOptimistic}
+                  deleteTask={deleteTask}
                   setTasks={setTasks}
                   onUpload={async (taskId, file) => {
                     try {
@@ -1031,6 +1050,7 @@ function GroupedRows({
   selectedIds,
   setSelectedIds,
   updateTask,
+  deleteTask,
   setTasks,
   onUpload,
 }: {
@@ -1038,6 +1058,7 @@ function GroupedRows({
   selectedIds: string[];
   setSelectedIds: React.Dispatch<React.SetStateAction<string[]>>;
   updateTask: (id: string, patch: Partial<Task>) => Promise<boolean>;
+  deleteTask: (id: string, title: string) => Promise<void>;
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
   onUpload: (taskId: string, file: File) => Promise<void>;
 }) {
@@ -1180,7 +1201,7 @@ function GroupedRows({
                 />
               </td>
               <td className="py-2 pr-3">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="min-w-[18px] text-white/70">
                     {t._count?.attachments ? String(t._count.attachments) : "0"}
                   </span>
@@ -1201,6 +1222,15 @@ function GroupedRows({
                       }}
                     />
                   </label>
+
+                  <button
+                    type="button"
+                    className="jam-btn h-8 px-3 text-xs border border-red-400/25 text-red-200/80 hover:bg-red-400/10"
+                    onClick={() => void deleteTask(t.id, t.title)}
+                    title="Delete task"
+                  >
+                    Delete
+                  </button>
                 </div>
               </td>
               <td className="py-2 pr-3">
