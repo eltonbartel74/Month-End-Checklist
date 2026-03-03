@@ -720,19 +720,15 @@ function formatTime12h(hhmm: string) {
   return mm === "00" ? `${h12}${suffix}` : `${h12}:${mm}${suffix}`;
 }
 
-function isoDayLocal(d: Date) {
-  const js = d.getDay(); // 0 Sun .. 6 Sat
-  return js === 0 ? 7 : js;
-}
-
 function startOfDayLocal(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
-function nextIsoWeekdayLocal(targetIsoDay: number, from = new Date()) {
+function mondayOfCurrentWeekLocal(from = new Date()) {
   const d0 = startOfDayLocal(from);
-  const cur = isoDayLocal(d0);
-  const delta = (targetIsoDay - cur + 7) % 7; // 0..6
+  const js = d0.getDay(); // 0 Sun .. 6 Sat
+  const iso = js === 0 ? 7 : js; // 1=Mon .. 7=Sun
+  const delta = 1 - iso; // move back to Monday
   const cand = new Date(d0);
   cand.setDate(cand.getDate() + delta);
   return cand;
@@ -747,8 +743,8 @@ function formatSchedule(t: Task) {
     // Display-only rule: if it's a Monday-only weekly task and Monday is a SA public holiday,
     // show Tuesday instead.
     if (daysRaw.length === 1 && daysRaw[0] === 1) {
-      const nextMon = nextIsoWeekdayLocal(1);
-      if (isSaPublicHoliday(nextMon)) {
+      const monThisWeek = mondayOfCurrentWeekLocal();
+      if (isSaPublicHoliday(monThisWeek)) {
         return `Tuesday${time} (Mon public holiday)`;
       }
       return `Monday${time}`;
@@ -1074,6 +1070,7 @@ function GroupedRows({
 }) {
   const [savingOwnerIds, setSavingOwnerIds] = useState<Set<string>>(() => new Set());
   const [savedOwnerIds, setSavedOwnerIds] = useState<Set<string>>(() => new Set());
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
 
   const fx = (t: Task) => (t.frequency ?? "").toLowerCase();
   const daily = tasks.filter((t) => fx(t) === "daily");
@@ -1266,13 +1263,11 @@ function GroupedRows({
                 {(t.frequency ?? "").toLowerCase() === "daily" ? (
                   <div className="text-white/80">{formatSchedule(t) || "–"}</div>
                 ) : (t.frequency ?? "").toLowerCase() === "weekly" ? (
-                  (t.weeklyDays?.length || t.dailyTime) ? (
-                    <div className="text-white/80">{formatSchedule(t) || "–"}</div>
-                  ) : (
+                  editingScheduleId === t.id ? (
                     <div className="flex flex-wrap items-center gap-2">
                       <select
                         className="h-8 rounded border border-white/10 bg-black/10 px-2 text-sm"
-                        defaultValue={""}
+                        value={String(t.weeklyDays?.[0] ?? "")}
                         onChange={(e) => {
                           const v = Number(e.target.value);
                           if (!Number.isFinite(v)) return;
@@ -1289,12 +1284,37 @@ function GroupedRows({
                       <input
                         type="time"
                         className="h-8 rounded border border-white/10 bg-black/10 px-2 text-sm"
+                        value={t.dailyTime ?? ""}
+                        onChange={(e) =>
+                          setTasks((prev) =>
+                            prev.map((x) =>
+                              x.id === t.id ? { ...x, dailyTime: e.target.value } : x
+                            )
+                          )
+                        }
                         onBlur={(e) => {
                           const v = e.target.value?.trim();
-                          if (!v) return;
-                          void updateTask(t.id, { dailyTime: v });
+                          void updateTask(t.id, { dailyTime: v || null });
                         }}
                       />
+                      <button
+                        type="button"
+                        className="jam-btn h-8 px-3 text-xs"
+                        onClick={() => setEditingScheduleId(null)}
+                      >
+                        Done
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <div className="text-white/80">{formatSchedule(t) || "–"}</div>
+                      <button
+                        type="button"
+                        className="text-xs text-white/60 underline hover:text-white/80"
+                        onClick={() => setEditingScheduleId(t.id)}
+                      >
+                        Edit
+                      </button>
                     </div>
                   )
                 ) : (
