@@ -158,42 +158,54 @@ export default function Home() {
     const onTimePct =
       doneWithDue.length === 0 ? null : doneOnTime / doneWithDue.length;
 
-    // Monthly weighted completion by hours
-    const monthly = tasks.filter(
-      (t) => (t.frequency ?? "").toLowerCase() === "monthly"
-    );
-
+    // Capacity / progress (budgeted vs completed) based on Est Hrs P/M
     const parseHours = (s: string | null) => {
       if (!s) return null;
-      const m = String(s)
-        .trim()
-        .replace(/hrs?/gi, "")
-        .trim();
+      const m = String(s).trim().replace(/hrs?/gi, "").trim();
       const n = Number(m);
       return Number.isFinite(n) ? n : null;
     };
 
-    const monthlyHours = monthly.map((t) => parseHours(t.estHoursPm));
-    const monthlyMissingHours = monthlyHours.some((h) => h === null);
+    const bizDays = businessDaysInMonthSa(period);
 
-    let monthlyWeightedPct: number | null = null;
-    let monthlyTotalHours: number | null = null;
-    let monthlyDoneHours: number | null = null;
+    const budgetHoursForTask = (t: Task): number | null => {
+      const h = parseHours(t.estHoursPm);
+      if (h === null) return null;
+      const f = (t.frequency ?? "").toLowerCase();
+      if (f === "monthly") return h;
+      if (f === "daily") {
+        if (bizDays === null) return null;
+        return h * bizDays;
+      }
+      if (f === "weekly") {
+        const occ = countWeekdayOccurrencesInMonthSa(period, t.weeklyDays ?? []);
+        if (occ === null) return null;
+        return h * occ;
+      }
+      // adhoc/other: treat as one-off hours
+      return h;
+    };
 
-    if (!monthlyMissingHours && monthly.length > 0) {
-      const totalHrs = monthly.reduce(
-        (acc, _t, i) => acc + (monthlyHours[i] ?? 0),
-        0
-      );
-      const doneHrs = monthly.reduce(
-        (acc, t, i) => acc + (t.status === "DONE" ? (monthlyHours[i] ?? 0) : 0),
-        0
-      );
+    let budgetedHours: number | null = 0;
+    let completedHours: number | null = 0;
+    let missingHours = 0;
 
-      monthlyTotalHours = totalHrs;
-      monthlyDoneHours = doneHrs;
-      monthlyWeightedPct = totalHrs > 0 ? doneHrs / totalHrs : null;
+    for (const t of tasks) {
+      const bh = budgetHoursForTask(t);
+      if (bh === null) {
+        missingHours++;
+        continue;
+      }
+      budgetedHours! += bh;
+      if (t.status === "DONE") completedHours! += bh;
     }
+
+    if (missingHours > 0) {
+      // Keep totals, but flag that they’re incomplete.
+    }
+
+    const progressPct =
+      budgetedHours && budgetedHours > 0 ? completedHours! / budgetedHours : null;
 
     return {
       total,
@@ -202,12 +214,13 @@ export default function Home() {
       inProgress,
       done,
       onTimePct,
-      monthlyWeightedPct,
-      monthlyTotalHours,
-      monthlyDoneHours,
-      monthlyMissingHours,
+
+      budgetedHours,
+      completedHours,
+      progressPct,
+      missingHours,
     };
-  }, [tasks, now]);
+  }, [tasks, now, period]);
 
   const ownerOptions = useMemo(() => {
     const set = new Set<string>();
@@ -452,39 +465,37 @@ export default function Home() {
           <Kpi
             label="On-time %"
             value={
-              kpis.onTimePct === null
-                ? "–"
-                : `${Math.round(kpis.onTimePct * 100)}%`
+              kpis.onTimePct === null ? "–" : `${Math.round(kpis.onTimePct * 100)}%`
             }
           />
           <Kpi
-            label="Monthly hrs (total)"
+            label={`Budgeted hrs (${period})`}
             value={
-              kpis.monthlyMissingHours
+              kpis.missingHours
                 ? "Fill hrs"
-                : kpis.monthlyTotalHours === null
+                : kpis.budgetedHours === null
                   ? "–"
-                  : String(Math.round(kpis.monthlyTotalHours * 10) / 10)
+                  : String(Math.round(kpis.budgetedHours * 10) / 10)
             }
           />
           <Kpi
-            label="Monthly hrs (done)"
+            label={`Completed hrs (${period})`}
             value={
-              kpis.monthlyMissingHours
+              kpis.missingHours
                 ? "Fill hrs"
-                : kpis.monthlyDoneHours === null
+                : kpis.completedHours === null
                   ? "–"
-                  : String(Math.round(kpis.monthlyDoneHours * 10) / 10)
+                  : String(Math.round(kpis.completedHours * 10) / 10)
             }
           />
           <Kpi
-            label="Monthly % (hrs)"
+            label={`Progress % (${period})`}
             value={
-              kpis.monthlyMissingHours
+              kpis.missingHours
                 ? "Fill hrs"
-                : kpis.monthlyWeightedPct === null
+                : kpis.progressPct === null
                   ? "–"
-                  : `${Math.round(kpis.monthlyWeightedPct * 100)}%`
+                  : `${Math.round(kpis.progressPct * 100)}%`
             }
           />
         </div>
@@ -948,9 +959,10 @@ function OwnerAccordion({ tasks, period }: { tasks: Task[]; period: string }) {
       }).length;
       const onTimePct = doneWithDue.length ? doneOnTime / doneWithDue.length : null;
 
-      // Workload hours/month
+      // Budgeted vs completed hours (period capacity)
       let missingHours = false;
-      let hours = 0;
+      let budgetHours = 0;
+      let doneHours = 0;
 
       for (const t of ts) {
         const h = parseHoursMaybe(t.estHoursPm);
@@ -960,24 +972,34 @@ function OwnerAccordion({ tasks, period }: { tasks: Task[]; period: string }) {
         }
 
         const f = (t.frequency ?? "").toLowerCase();
+        let bh: number | null = null;
         if (f === "monthly") {
-          hours += h;
+          bh = h;
         } else if (f === "daily") {
           if (bizDays === null) {
-            missingHours = true;
+            bh = null;
           } else {
-            hours += h * bizDays;
+            bh = h * bizDays;
           }
         } else if (f === "weekly") {
           const occ = countWeekdayOccurrencesInMonthSa(period, t.weeklyDays ?? []);
           if (occ === null) {
-            missingHours = true;
+            bh = null;
           } else {
-            hours += h * occ;
+            bh = h * occ;
           }
         } else {
-          // ignore other frequencies in workload calc for now
+          // adhoc/other: treat as one-off hours
+          bh = h;
         }
+
+        if (bh === null) {
+          missingHours = true;
+          continue;
+        }
+
+        budgetHours += bh;
+        if (t.status === "DONE") doneHours += bh;
       }
 
       return {
@@ -987,8 +1009,9 @@ function OwnerAccordion({ tasks, period }: { tasks: Task[]; period: string }) {
         done: done.length,
         overdue,
         onTimePct,
-        workloadHours: hours,
-        workloadMissing: missingHours,
+        budgetHours,
+        doneHours,
+        hoursMissing: missingHours,
       };
     });
 
@@ -996,8 +1019,8 @@ function OwnerAccordion({ tasks, period }: { tasks: Task[]; period: string }) {
     return owners;
   }, [tasks, period, bizDays]);
 
-  const totalWorkload = rows.reduce(
-    (acc, r) => acc + (r.workloadMissing ? 0 : r.workloadHours),
+  const totalBudgetHours = rows.reduce(
+    (acc, r) => acc + (r.hoursMissing ? 0 : r.budgetHours),
     0
   );
 
@@ -1029,14 +1052,19 @@ function OwnerAccordion({ tasks, period }: { tasks: Task[]; period: string }) {
 
       <div className="px-3 pb-3">
         <div className="text-xs text-white/60">
-          Workload % uses {period} SA business days (daily = hrs × business days; weekly skips public holidays).
+          Budgeted vs completed uses {period} SA business days (daily = hrs × business days; weekly skips public holidays).
         </div>
 
         <div className="mt-2 space-y-2">
           {rows.map((r) => {
-            const workloadPct =
-              !r.workloadMissing && totalWorkload > 0
-                ? r.workloadHours / totalWorkload
+            const progressPct =
+              !r.hoursMissing && r.budgetHours > 0
+                ? r.doneHours / r.budgetHours
+                : null;
+
+            const budgetSharePct =
+              !r.hoursMissing && totalBudgetHours > 0
+                ? r.budgetHours / totalBudgetHours
                 : null;
 
             return (
@@ -1055,7 +1083,16 @@ function OwnerAccordion({ tasks, period }: { tasks: Task[]; period: string }) {
                         On-time: {r.onTimePct === null ? "–" : `${Math.round(r.onTimePct * 100)}%`}
                       </span>
                       <span>
-                        Workload: {workloadPct === null ? "Fill hrs" : `${Math.round(workloadPct * 100)}%`}
+                        Budget hrs: {r.hoursMissing ? "Fill hrs" : String(Math.round(r.budgetHours * 10) / 10)}
+                      </span>
+                      <span>
+                        Done hrs: {r.hoursMissing ? "Fill hrs" : String(Math.round(r.doneHours * 10) / 10)}
+                      </span>
+                      <span>
+                        Progress: {progressPct === null ? "–" : `${Math.round(progressPct * 100)}%`}
+                      </span>
+                      <span>
+                        Budget share: {budgetSharePct === null ? "–" : `${Math.round(budgetSharePct * 100)}%`}
                       </span>
                     </div>
                   </div>
