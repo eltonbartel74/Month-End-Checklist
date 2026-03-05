@@ -1582,6 +1582,17 @@ function GroupedRows({
 
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
 
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    Daily: false,
+    Weekly: false,
+    Adhoc: false,
+    Monthly: true,
+  });
+
+  const toggleGroup = (label: string) => {
+    setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }));
+  };
+
   const toggleOne = (id: string, on: boolean) => {
     setSelectedIds((prev) => {
       const s = new Set(prev);
@@ -1777,12 +1788,28 @@ function GroupedRows({
         <React.Fragment key={g.label}>
           <tr>
             <td className="pt-4 pb-2 text-xs font-semibold text-white/70" colSpan={10}>
-              {g.label}
-              <span className="ml-2 text-white/40">({g.rows.length})</span>
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  className="text-left hover:text-white/90"
+                  onClick={() => toggleGroup(g.label)}
+                >
+                  {g.label}
+                  <span className="ml-2 text-white/40">({g.rows.length})</span>
+                </button>
+                <button
+                  type="button"
+                  className="text-xs text-white/50 underline hover:text-white/70"
+                  onClick={() => toggleGroup(g.label)}
+                >
+                  {openGroups[g.label] ? "Hide" : "Show"}
+                </button>
+              </div>
             </td>
           </tr>
-          {g.rows.map((t) => (
-            <tr key={t.id} className="border-b border-white/10 align-top">
+          {openGroups[g.label]
+            ? g.rows.map((t) => (
+                <tr key={t.id} className="border-b border-white/10 align-top">
               <td className="py-2 pr-3">
                 <input
                   type="checkbox"
@@ -2124,7 +2151,8 @@ function GroupedRows({
                 />
               </td>
             </tr>
-          ))}
+              ))
+            : null}
         </React.Fragment>
       ))}
     </>
