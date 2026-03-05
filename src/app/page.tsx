@@ -631,8 +631,8 @@ export default function Home() {
           <div className="flex flex-wrap gap-2">
             {/* New task wizard modal */}
             {wizardOpen ? (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-                <div className="w-full max-w-2xl rounded border border-white/15 bg-slate-950 p-4">
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                <div className="w-full max-w-2xl rounded-md border border-white/10 bg-slate-900/90 p-4 shadow-xl backdrop-blur">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-sm font-semibold">New task</div>
