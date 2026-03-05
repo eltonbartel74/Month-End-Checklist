@@ -1156,14 +1156,20 @@ function addDaysUtc(d: Date, days: number) {
 }
 
 function monthlyDueForPeriodSa(period: string, monthlyDay: number | null) {
+  // Period is the month being closed (e.g. 2026-02). Monthly task due dates are in the *following* month.
   const p = parsePeriod(period);
   if (!p) return null;
   if (!Number.isFinite(monthlyDay ?? NaN)) return null;
   const dom = Number(monthlyDay);
   if (dom < 1 || dom > 31) return null;
 
-  const lastDay = new Date(Date.UTC(p.year, p.month, 0)).getUTCDate();
-  let d = new Date(Date.UTC(p.year, p.month - 1, Math.min(dom, lastDay)));
+  const base = new Date(Date.UTC(p.year, p.month - 1, 1));
+  base.setUTCMonth(base.getUTCMonth() + 1); // move to next month
+  const y = base.getUTCFullYear();
+  const m = base.getUTCMonth();
+
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  let d = new Date(Date.UTC(y, m, Math.min(dom, lastDay)));
   while (!isBusinessDay(d)) d = addDaysUtc(d, 1); // roll forward to business day
   return d;
 }
@@ -2008,7 +2014,7 @@ function GroupedRows({
                     <div className="text-[11px] text-white/50">
                       {(() => {
                         const d = monthlyDueForPeriodSa(period, t.monthlyDay);
-                        return d ? `This month: ${formatAuDate(d.toISOString())}` : "";
+                        return d ? `Due: ${formatAuDate(d.toISOString())}` : "";
                       })()}
                     </div>
                   </div>
