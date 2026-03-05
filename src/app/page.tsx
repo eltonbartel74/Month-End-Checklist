@@ -322,7 +322,12 @@ export default function Home() {
       payload.dueAt = null;
     } else {
       // adhoc
-      payload.dueAt = wDueDate ? new Date(wDueDate).toISOString() : null;
+      payload.dueAt = wDueDate ? parseAuDateToIso(wDueDate) : null;
+      if (wDueDate && !payload.dueAt) {
+        setActionError("Invalid due date. Use DD/MM/YYYY (e.g. 07/03/2026). ");
+        setWizardStep(3);
+        return;
+      }
     }
 
     try {
@@ -737,10 +742,10 @@ export default function Home() {
                         <div>
                           <div className="text-xs text-white/60">Due date (DD/MM/YYYY)</div>
                           <input
-                            type="date"
                             className="mt-1 h-10 w-full rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
                             value={wDueDate}
                             onChange={(e) => setWDueDate(e.target.value)}
+                            placeholder="DD/MM/YYYY"
                             autoFocus
                           />
                         </div>
@@ -1135,6 +1140,37 @@ function parsePeriod(period: string) {
   const month = Number(m[2]);
   if (month < 1 || month > 12) return null;
   return { year, month };
+}
+
+function formatAuDate(iso: string | null) {
+  if (!iso) return "";
+  // Expect ISO string; take date portion.
+  const d = iso.slice(0, 10);
+  const m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(d);
+  if (!m) return d;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+function parseAuDateToIso(ddmmyyyy: string) {
+  const s = ddmmyyyy.trim();
+  if (!s) return null;
+  const m = /^([0-3]?\d)[\/\-]([01]?\d)[\/\-]([12]\d{3})$/.exec(s);
+  if (!m) return null;
+  const dd = Number(m[1]);
+  const mm = Number(m[2]);
+  const yyyy = Number(m[3]);
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+  // Use UTC ISO, date only.
+  const dt = new Date(Date.UTC(yyyy, mm - 1, dd));
+  // Basic sanity: if JS rolled the date (e.g. 31/02), reject.
+  if (
+    dt.getUTCFullYear() !== yyyy ||
+    dt.getUTCMonth() !== mm - 1 ||
+    dt.getUTCDate() !== dd
+  ) {
+    return null;
+  }
+  return dt.toISOString();
 }
 
 function businessDaysInMonthSa(period: string) {
@@ -1867,16 +1903,24 @@ function GroupedRows({
                   </select>
                 ) : (
                   <input
-                    type="date"
+                    key={`due_${t.id}_${t.updatedAt}`}
                     className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
-                    value={t.dueAt ? t.dueAt.slice(0, 10) : ""}
-                    onChange={(e) =>
-                      void updateTask(t.id, {
-                        dueAt: e.target.value
-                          ? new Date(e.target.value).toISOString()
-                          : null,
-                      })
-                    }
+                    defaultValue={formatAuDate(t.dueAt)}
+                    placeholder="DD/MM/YYYY"
+                    onBlur={(e) => {
+                      const raw = e.target.value;
+                      if (!raw.trim()) {
+                        void updateTask(t.id, { dueAt: null });
+                        return;
+                      }
+                      const iso = parseAuDateToIso(raw);
+                      if (!iso) {
+                        // reset display back to last known value
+                        e.target.value = formatAuDate(t.dueAt);
+                        return;
+                      }
+                      void updateTask(t.id, { dueAt: iso });
+                    }}
                   />
                 )}
               </td>
@@ -1886,16 +1930,23 @@ function GroupedRows({
                   <div className="text-white/60">–</div>
                 ) : (
                   <input
-                    type="date"
+                    key={`eta_${t.id}_${t.updatedAt}`}
                     className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
-                    value={t.etaAt ? t.etaAt.slice(0, 10) : ""}
-                    onChange={(e) =>
-                      void updateTask(t.id, {
-                        etaAt: e.target.value
-                          ? new Date(e.target.value).toISOString()
-                          : null,
-                      })
-                    }
+                    defaultValue={formatAuDate(t.etaAt)}
+                    placeholder="DD/MM/YYYY"
+                    onBlur={(e) => {
+                      const raw = e.target.value;
+                      if (!raw.trim()) {
+                        void updateTask(t.id, { etaAt: null });
+                        return;
+                      }
+                      const iso = parseAuDateToIso(raw);
+                      if (!iso) {
+                        e.target.value = formatAuDate(t.etaAt);
+                        return;
+                      }
+                      void updateTask(t.id, { etaAt: iso });
+                    }}
                   />
                 )}
               </td>
