@@ -149,26 +149,32 @@ export default function Home() {
     const total = tasks.length;
     const doneTasks = tasks.filter((t) => t.status === "DONE");
     const done = doneTasks.length;
-    const overdue = tasks.filter(
-      (t) => t.status !== "DONE" && t.dueAt && new Date(t.dueAt).getTime() < now
-    ).length;
+    const overdue = tasks.filter((t) => {
+      if (t.status === "DONE") return false;
+      const due = dueDateForKpi(t, period);
+      return Boolean(due && due.getTime() < now);
+    }).length;
+
     const dueNext7 = tasks.filter((t) => {
-      if (t.status === "DONE" || !t.dueAt) return false;
-      const ms = new Date(t.dueAt).getTime() - now;
+      if (t.status === "DONE") return false;
+      const due = dueDateForKpi(t, period);
+      if (!due) return false;
+      const ms = due.getTime() - now;
       return ms >= 0 && ms <= 7 * 24 * 60 * 60 * 1000;
     }).length;
     const inProgress = tasks.filter((t) => t.status === "IN_PROGRESS").length;
 
-    const doneWithDue = doneTasks.filter((t) => Boolean(t.dueAt && t.lastDoneAt));
+    const doneWithDue = doneTasks.filter((t) => Boolean(dueDateForKpi(t, period) && t.lastDoneAt));
     const doneOnTime = doneWithDue.filter((t) => {
       // on time if done on/before due date (date-level), not time-of-day strict.
-      const dueDay = new Date(t.dueAt!).toISOString().slice(0, 10);
+      const due = dueDateForKpi(t, period);
+      if (!due) return false;
+      const dueDay = due.toISOString().slice(0, 10);
       const doneDay = new Date(t.lastDoneAt!).toISOString().slice(0, 10);
       return doneDay <= dueDay;
     }).length;
 
-    const onTimePct =
-      doneWithDue.length === 0 ? null : doneOnTime / doneWithDue.length;
+    const onTimePct = doneWithDue.length === 0 ? null : doneOnTime / doneWithDue.length;
 
     // Capacity / progress (budgeted vs completed) based on Est Hrs P/M
     const parseHours = (s: string | null) => {
@@ -966,6 +972,7 @@ export default function Home() {
               ) : (
                 <GroupedRows
                   tasks={visibleTasks}
+                  period={period}
                   selectedIds={selectedIds}
                   setSelectedIds={setSelectedIds}
                   updateTask={updateTaskOptimistic}
@@ -1142,6 +1149,37 @@ function parsePeriod(period: string) {
   return { year, month };
 }
 
+function addDaysUtc(d: Date, days: number) {
+  const x = new Date(d);
+  x.setUTCDate(x.getUTCDate() + days);
+  return x;
+}
+
+function monthlyDueForPeriodSa(period: string, monthlyDay: number | null) {
+  const p = parsePeriod(period);
+  if (!p) return null;
+  if (!Number.isFinite(monthlyDay ?? NaN)) return null;
+  const dom = Number(monthlyDay);
+  if (dom < 1 || dom > 31) return null;
+
+  const lastDay = new Date(Date.UTC(p.year, p.month, 0)).getUTCDate();
+  let d = new Date(Date.UTC(p.year, p.month - 1, Math.min(dom, lastDay)));
+  while (!isBusinessDay(d)) d = addDaysUtc(d, 1); // roll forward to business day
+  return d;
+}
+
+function dueDateForKpi(t: Task, period: string) {
+  const f = (t.frequency ?? "").toLowerCase();
+  if (f === "monthly") {
+    return monthlyDueForPeriodSa(period, t.monthlyDay);
+  }
+  // Adhoc/monthly historical uses dueAt
+  if (t.dueAt) return new Date(t.dueAt);
+  // If backend has computed nextDueAt, use it
+  if (t.nextDueAt) return new Date(t.nextDueAt);
+  return null;
+}
+
 function formatAuDate(iso: string | null) {
   if (!iso) return "";
   // Expect ISO string; take date portion.
@@ -1229,16 +1267,17 @@ function OwnerAccordion({ tasks, period }: { tasks: Task[]; period: string }) {
     const owners = Array.from(byOwner.entries()).map(([owner, ts]) => {
       const total = ts.length;
       const done = ts.filter((t) => t.status === "DONE");
-      const overdue = ts.filter(
-        (t) =>
-          t.status !== "DONE" &&
-          t.dueAt &&
-          new Date(t.dueAt).getTime() < Date.now()
-      ).length;
+      const overdue = ts.filter((t) => {
+        if (t.status === "DONE") return false;
+        const due = dueDateForKpi(t, period);
+        return Boolean(due && due.getTime() < Date.now());
+      }).length;
 
-      const doneWithDue = done.filter((t) => Boolean(t.dueAt && t.lastDoneAt));
+      const doneWithDue = done.filter((t) => Boolean(dueDateForKpi(t, period) && t.lastDoneAt));
       const doneOnTime = doneWithDue.filter((t) => {
-        const dueDay = new Date(t.dueAt!).toISOString().slice(0, 10);
+        const due = dueDateForKpi(t, period);
+        if (!due) return false;
+        const dueDay = due.toISOString().slice(0, 10);
         const doneDay = new Date(t.lastDoneAt!).toISOString().slice(0, 10);
         return doneDay <= dueDay;
       }).length;
@@ -1423,6 +1462,7 @@ type Attachment = {
 
 function GroupedRows({
   tasks,
+  period,
   selectedIds,
   setSelectedIds,
   updateTask,
@@ -1431,6 +1471,7 @@ function GroupedRows({
   onUpload,
 }: {
   tasks: Task[];
+  period: string;
   selectedIds: string[];
   setSelectedIds: React.Dispatch<React.SetStateAction<string[]>>;
   updateTask: (id: string, patch: Partial<Task>) => Promise<boolean>;
@@ -1885,22 +1926,30 @@ function GroupedRows({
                     </div>
                   )
                 ) : (t.frequency ?? "").toLowerCase() === "monthly" ? (
-                  <select
-                    className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
-                    value={String(t.monthlyDay ?? 7)}
-                    onChange={(e) =>
-                      void updateTask(t.id, {
-                        monthlyDay: Number(e.target.value),
-                        dueAt: null,
-                      })
-                    }
-                  >
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                      <option key={d} value={String(d)}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-1">
+                    <select
+                      className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
+                      value={String(t.monthlyDay ?? 7)}
+                      onChange={(e) =>
+                        void updateTask(t.id, {
+                          monthlyDay: Number(e.target.value),
+                          dueAt: null,
+                        })
+                      }
+                    >
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                        <option key={d} value={String(d)}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="text-[11px] text-white/50">
+                      {(() => {
+                        const d = monthlyDueForPeriodSa(period, t.monthlyDay);
+                        return d ? `This month: ${formatAuDate(d.toISOString())}` : "";
+                      })()}
+                    </div>
+                  </div>
                 ) : (
                   <input
                     key={`due_${t.id}_${t.updatedAt}`}
