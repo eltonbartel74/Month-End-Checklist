@@ -1535,18 +1535,43 @@ function GroupedRows({
     return map;
   }, [tasks, period]);
 
-  const daily = tasks.filter((t) => fx(t) === "daily");
-  const weekly = tasks.filter((t) => fx(t) === "weekly");
-  const monthly = tasks.filter((t) => fx(t) === "monthly");
-  const adhoc = tasks.filter((t) => {
-    const f = fx(t);
-    return (
-      f === "adhoc" ||
-      f === "ad hoc" ||
-      f === "ad-hoc" ||
-      (!f || !["daily", "weekly", "monthly"].includes(f))
-    );
-  });
+  const daily = tasks
+    .filter((t) => fx(t) === "daily")
+    .slice()
+    .sort((a, b) => a.title.localeCompare(b.title));
+
+  const weekly = tasks
+    .filter((t) => fx(t) === "weekly")
+    .slice()
+    .sort((a, b) => a.title.localeCompare(b.title));
+
+  const monthly = tasks
+    .filter((t) => fx(t) === "monthly")
+    .slice()
+    .sort((a, b) => {
+      const da = dueDateForKpi(a, period)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const db = dueDateForKpi(b, period)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      if (da !== db) return da - db;
+      return a.title.localeCompare(b.title);
+    });
+
+  const adhoc = tasks
+    .filter((t) => {
+      const f = fx(t);
+      return (
+        f === "adhoc" ||
+        f === "ad hoc" ||
+        f === "ad-hoc" ||
+        (!f || !["daily", "weekly", "monthly"].includes(f))
+      );
+    })
+    .slice()
+    .sort((a, b) => {
+      const da = dueDateForKpi(a, period)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const db = dueDateForKpi(b, period)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      if (da !== db) return da - db;
+      return a.title.localeCompare(b.title);
+    });
 
   const groups: Array<{ label: string; rows: Task[] }> = [
     { label: "Daily", rows: daily },
