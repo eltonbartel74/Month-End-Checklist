@@ -39,6 +39,7 @@ export async function POST(
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/vnd.ms-excel",
     "image/jpeg",
+    "image/png",
   ];
 
   if (!allowed.includes(contentType)) {

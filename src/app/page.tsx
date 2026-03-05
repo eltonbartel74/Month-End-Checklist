@@ -60,11 +60,12 @@ export default function Home() {
   const [bulkOwner, setBulkOwner] = useState("");
   const [closing, setClosing] = useState(false);
 
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   async function refresh() {
     setLoading(true);
-    setError(null);
+    setLoadError(null);
 
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), 15_000);
@@ -112,7 +113,7 @@ export default function Home() {
             ? "Timed out loading tasks."
             : e.message
           : "Failed to load tasks.";
-      setError(msg);
+      setLoadError(msg);
     } finally {
       setRetrying(false);
       clearTimeout(t);
@@ -262,7 +263,7 @@ export default function Home() {
   async function createTask() {
     const title = newTitle.trim();
     if (!title) {
-      setError("Task title is required.");
+      setActionError("Task title is required.");
       return;
     }
 
@@ -280,7 +281,7 @@ export default function Home() {
 
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        setError(data.error || `Create failed (${res.status})`);
+        setActionError(data.error || `Create failed (${res.status})`);
         return;
       }
 
@@ -288,7 +289,7 @@ export default function Home() {
       setNewOwner("");
       await refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Create failed (network error).");
+      setActionError(e instanceof Error ? e.message : "Create failed (network error).");
     }
   }
 
@@ -296,7 +297,7 @@ export default function Home() {
     const ok = window.confirm(`Delete task “${title}”? This can’t be undone.`);
     if (!ok) return;
 
-    setError(null);
+    setActionError(null);
 
     // optimistic remove
     setTasks((prev) => prev.filter((t) => t.id !== id));
@@ -305,7 +306,7 @@ export default function Home() {
     const res = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
     if (!res.ok) {
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
-      setError(data?.error || `Delete failed (${res.status})`);
+      setActionError(data?.error || `Delete failed (${res.status})`);
       await refresh();
     }
   }
@@ -354,7 +355,7 @@ export default function Home() {
   }
 
   async function updateTaskOptimistic(id: string, patch: Partial<Task>) {
-    setError(null);
+    setActionError(null);
 
     // Snapshot current row for rollback.
     let before: Task | null = null;
@@ -372,7 +373,7 @@ export default function Home() {
       if (before) {
         setTasks((prev) => prev.map((t) => (t.id === id ? before! : t)));
       }
-      setError(res.error);
+      setActionError(res.error);
       return false;
     }
 
@@ -385,7 +386,7 @@ export default function Home() {
     const owner = ownerRaw.trim();
     if (selectedIds.length === 0) return;
 
-    setError(null);
+    setActionError(null);
 
     // allow clearing to Unassigned via empty string
     const patch: Partial<Task> = { owner: owner ? owner : null };
@@ -399,7 +400,7 @@ export default function Home() {
     for (const id of selectedIds) {
       const res = await updateTaskServer(id, patch);
       if (!res.ok) {
-        setError(res.error);
+        setActionError(res.error);
         // reconcile by reloading from server
         await refresh();
         return;
@@ -421,7 +422,7 @@ export default function Home() {
       });
       const data = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok) {
-        setError(data.error || `Month close failed (${res.status})`);
+        setActionError(data.error || `Month close failed (${res.status})`);
         return;
       }
       await refresh();
@@ -613,11 +614,11 @@ export default function Home() {
 
         {/* Owner KPIs moved to KPI section */}
 
-        {error ? (
+        {loadError ? (
           <div className="mt-3 flex items-center justify-between gap-3 rounded border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-100">
             <div>
               <div className="font-semibold">Couldn’t load tasks</div>
-              <div className="text-xs text-red-100/80">{error}</div>
+              <div className="text-xs text-red-100/80">{loadError}</div>
             </div>
             <button
               className="jam-btn jam-btn-primary h-9"
@@ -625,6 +626,22 @@ export default function Home() {
               onClick={() => void refresh()}
             >
               {retrying ? "Retrying…" : "Retry"}
+            </button>
+          </div>
+        ) : null}
+
+        {actionError ? (
+          <div className="mt-3 flex items-center justify-between gap-3 rounded border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-100">
+            <div>
+              <div className="font-semibold">Error</div>
+              <div className="text-xs text-red-100/80">{actionError}</div>
+            </div>
+            <button
+              className="jam-btn h-9"
+              type="button"
+              onClick={() => setActionError(null)}
+            >
+              Clear
             </button>
           </div>
         ) : null}
@@ -727,11 +744,11 @@ export default function Home() {
                   setTasks={setTasks}
                   onUpload={async (taskId, file) => {
                     try {
-                      setError(null);
+                      setActionError(null);
                       await uploadWorkingPaper(taskId, file);
                       await refresh();
                     } catch (err) {
-                      setError(err instanceof Error ? err.message : "Upload failed");
+                      setActionError(err instanceof Error ? err.message : "Upload failed");
                     }
                   }}
                 />
@@ -1498,7 +1515,7 @@ function GroupedRows({
                     <input
                       type="file"
                       className="hidden"
-                      accept="application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,image/jpeg"
+                      accept="application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,image/jpeg,image/png"
                       onChange={async (e) => {
                         const f = e.target.files?.[0];
                         if (!f) return;
