@@ -260,28 +260,36 @@ export default function Home() {
   }, [tasks, filterOwner, filterStatus, filterText]);
 
   async function createTask() {
-    if (!newTitle.trim()) return;
-
-    const owner = newOwner.trim();
-
-    const res = await fetch("/api/tasks", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        title: newTitle.trim(),
-        owner: owner ? owner : null,
-      }),
-    });
-
-    if (!res.ok) {
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      setError(data.error || `Create failed (${res.status})`);
+    const title = newTitle.trim();
+    if (!title) {
+      setError("Task title is required.");
       return;
     }
 
-    setNewTitle("");
-    setNewOwner("");
-    await refresh();
+    const owner = newOwner.trim();
+
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title,
+          owner: owner ? owner : null,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        setError(data.error || `Create failed (${res.status})`);
+        return;
+      }
+
+      setNewTitle("");
+      setNewOwner("");
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Create failed (network error).");
+    }
   }
 
   async function deleteTask(id: string, title: string) {
