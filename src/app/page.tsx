@@ -1211,6 +1211,30 @@ function formatAuDate(iso: string | null) {
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
+function parseDependencies(depRaw: string | null | undefined) {
+  const s = (depRaw ?? "").trim();
+  if (!s) return [] as string[];
+  if (s.startsWith("[")) {
+    try {
+      const arr = JSON.parse(s);
+      if (Array.isArray(arr)) {
+        return arr.map((x) => String(x).trim()).filter(Boolean);
+      }
+    } catch {
+      // fall through
+    }
+  }
+  // Back-compat: treat as a single title string.
+  return [s];
+}
+
+function stringifyDependencies(deps: string[]) {
+  const clean = deps.map((x) => x.trim()).filter(Boolean);
+  if (clean.length === 0) return null;
+  if (clean.length === 1) return clean[0]; // keep simple
+  return JSON.stringify(Array.from(new Set(clean)));
+}
+
 function parseAuDateToIso(ddmmyyyy: string) {
   const s = ddmmyyyy.trim();
   if (!s) return null;
@@ -1963,45 +1987,94 @@ function GroupedRows({
                 />
               </td>
               <td className="py-2 pr-3">
-                <div className="space-y-1">
-                  <input
-                    className="w-full rounded border border-white/10 bg-black/10 px-2 py-1 text-white/90"
-                    value={t.dependency ?? ""}
-                    list={`dep-datalist-${t.id}`}
-                    placeholder="–"
-                    onChange={(e) =>
-                      setTasks((prev) =>
-                        prev.map((x) =>
-                          x.id === t.id ? { ...x, dependency: e.target.value } : x
-                        )
-                      )
-                    }
-                    onBlur={(e) => void updateTask(t.id, { dependency: e.target.value || null })}
-                  />
-                  <datalist id={`dep-datalist-${t.id}`}>
-                    {depOptions
-                      .filter((x) => x !== t.title)
-                      .slice(0, 200)
-                      .map((x) => (
-                        <option key={x} value={x} />
-                      ))}
-                  </datalist>
-                  {(() => {
-                    const dep = (t.dependency ?? "").trim();
-                    if (!dep) return null;
-                    const depDue = dueByTitle.get(dep);
-                    const myDue = dueDateForKpi(t, period);
-                    if (!depDue || !myDue) return null;
-                    if (myDue.getTime() >= depDue.getTime()) return null;
-                    return (
-                      <div className="text-[11px] text-amber-200/80">
-                        Warning: due {formatAuDate(myDue.toISOString())} is before dependency ({formatAuDate(
-                          depDue.toISOString()
-                        )}).
+                {(() => {
+                  const deps = parseDependencies(t.dependency);
+                  const myDue = dueDateForKpi(t, period);
+                  const depDues = deps
+                    .map((d) => ({ title: d, due: dueByTitle.get(d) }))
+                    .filter((x) => Boolean(x.due)) as Array<{ title: string; due: Date }>;
+                  const latestDep = depDues.sort((a, b) => b.due.getTime() - a.due.getTime())[0];
+                  const warn =
+                    Boolean(latestDep && myDue && myDue.getTime() < latestDep.due.getTime());
+
+                  return (
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap gap-1">
+                        {deps.map((d) => (
+                          <button
+                            key={d}
+                            type="button"
+                            className="rounded-full border border-white/15 bg-black/10 px-2 py-1 text-xs text-white/80 hover:bg-white/5"
+                            title="Remove dependency"
+                            onClick={() => {
+                              const next = deps.filter((x) => x !== d);
+                              const depStr = stringifyDependencies(next);
+                              setTasks((prev) =>
+                                prev.map((x) =>
+                                  x.id === t.id ? { ...x, dependency: depStr } : x
+                                )
+                              );
+                              void updateTask(t.id, { dependency: depStr });
+                            }}
+                          >
+                            {d} ×
+                          </button>
+                        ))}
                       </div>
-                    );
-                  })()}
-                </div>
+
+                      <input
+                        className="w-full rounded border border-white/10 bg-black/10 px-2 py-1 text-white/90"
+                        placeholder={deps.length ? "Add dependency…" : "–"}
+                        list={`dep-datalist-${t.id}`}
+                        onKeyDown={(e) => {
+                          if (e.key !== "Enter") return;
+                          e.preventDefault();
+                          const raw = (e.currentTarget.value ?? "").trim();
+                          if (!raw) return;
+                          const next = Array.from(new Set([...deps, raw]));
+                          const depStr = stringifyDependencies(next);
+                          setTasks((prev) =>
+                            prev.map((x) =>
+                              x.id === t.id ? { ...x, dependency: depStr } : x
+                            )
+                          );
+                          void updateTask(t.id, { dependency: depStr });
+                          e.currentTarget.value = "";
+                        }}
+                        onBlur={(e) => {
+                          const raw = (e.currentTarget.value ?? "").trim();
+                          if (!raw) return;
+                          const next = Array.from(new Set([...deps, raw]));
+                          const depStr = stringifyDependencies(next);
+                          setTasks((prev) =>
+                            prev.map((x) =>
+                              x.id === t.id ? { ...x, dependency: depStr } : x
+                            )
+                          );
+                          void updateTask(t.id, { dependency: depStr });
+                          e.currentTarget.value = "";
+                        }}
+                      />
+
+                      <datalist id={`dep-datalist-${t.id}`}>
+                        {depOptions
+                          .filter((x) => x !== t.title)
+                          .slice(0, 200)
+                          .map((x) => (
+                            <option key={x} value={x} />
+                          ))}
+                      </datalist>
+
+                      {warn && latestDep && myDue ? (
+                        <div className="text-[11px] text-amber-200/80">
+                          Warning: due {formatAuDate(myDue.toISOString())} is before latest dependency ({latestDep.title}: {formatAuDate(
+                            latestDep.due.toISOString()
+                          )}).
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })()}
               </td>
               <td className="py-2 pr-3">
                 {(t.frequency ?? "").toLowerCase() === "daily" ? (
