@@ -1491,6 +1491,28 @@ function GroupedRows({
   const [reviewNotes, setReviewNotes] = useState("");
 
   const fx = (t: Task) => (t.frequency ?? "").toLowerCase();
+
+  const depOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of tasks) {
+      const title = (t.title ?? "").trim();
+      if (title) set.add(title);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [tasks]);
+
+  const dueByTitle = useMemo(() => {
+    const map = new Map<string, Date>();
+    for (const t of tasks) {
+      const title = (t.title ?? "").trim();
+      if (!title) continue;
+      const due = dueDateForKpi(t, period);
+      if (!due) continue;
+      map.set(title, due);
+    }
+    return map;
+  }, [tasks, period]);
+
   const daily = tasks.filter((t) => fx(t) === "daily");
   const weekly = tasks.filter((t) => fx(t) === "weekly");
   const monthly = tasks.filter((t) => fx(t) === "monthly");
@@ -1866,7 +1888,47 @@ function GroupedRows({
                   }
                 />
               </td>
-              <td className="py-2 pr-3 text-white/80">{t.dependency ?? "–"}</td>
+              <td className="py-2 pr-3">
+                <div className="space-y-1">
+                  <input
+                    className="w-full rounded border border-white/10 bg-black/10 px-2 py-1 text-white/90"
+                    value={t.dependency ?? ""}
+                    list={`dep-datalist-${t.id}`}
+                    placeholder="–"
+                    onChange={(e) =>
+                      setTasks((prev) =>
+                        prev.map((x) =>
+                          x.id === t.id ? { ...x, dependency: e.target.value } : x
+                        )
+                      )
+                    }
+                    onBlur={(e) => void updateTask(t.id, { dependency: e.target.value || null })}
+                  />
+                  <datalist id={`dep-datalist-${t.id}`}>
+                    {depOptions
+                      .filter((x) => x !== t.title)
+                      .slice(0, 200)
+                      .map((x) => (
+                        <option key={x} value={x} />
+                      ))}
+                  </datalist>
+                  {(() => {
+                    const dep = (t.dependency ?? "").trim();
+                    if (!dep) return null;
+                    const depDue = dueByTitle.get(dep);
+                    const myDue = dueDateForKpi(t, period);
+                    if (!depDue || !myDue) return null;
+                    if (myDue.getTime() >= depDue.getTime()) return null;
+                    return (
+                      <div className="text-[11px] text-amber-200/80">
+                        Warning: due {formatAuDate(myDue.toISOString())} is before dependency ({formatAuDate(
+                          depDue.toISOString()
+                        )}).
+                      </div>
+                    );
+                  })()}
+                </div>
+              </td>
               <td className="py-2 pr-3">
                 {(t.frequency ?? "").toLowerCase() === "daily" ? (
                   <div className="text-white/80">{formatSchedule(t) || "–"}</div>
