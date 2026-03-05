@@ -46,9 +46,19 @@ export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [newOwner, setNewOwner] = useState("");
   const [period, setPeriod] = useState("2026-02");
+
+  // New task wizard
+  type NewTaskType = "monthly" | "adhoc" | "weekly" | "daily";
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
+  const [wTitle, setWTitle] = useState("");
+  const [wType, setWType] = useState<NewTaskType>("monthly");
+  const [wOwner, setWOwner] = useState("");
+  const [wHrs, setWHrs] = useState("");
+  const [wDueDate, setWDueDate] = useState(""); // YYYY-MM-DD
+  const [wWeeklyDay, setWWeeklyDay] = useState<number>(1); // 1=Mon .. 5=Fri
+  const [wTime, setWTime] = useState(""); // HH:MM
 
   // Filters
   const [filterOwner, setFilterOwner] = useState<string>("ALL");
@@ -260,23 +270,60 @@ export default function Home() {
     });
   }, [tasks, filterOwner, filterStatus, filterText]);
 
-  async function createTask() {
-    const title = newTitle.trim();
+  function openWizard() {
+    setActionError(null);
+    setWizardStep(1);
+    setWTitle("");
+    setWType("monthly");
+    setWOwner("");
+    setWHrs("");
+    setWDueDate("");
+    setWWeeklyDay(1);
+    setWTime("");
+    setWizardOpen(true);
+  }
+
+  async function createTaskFromWizard() {
+    const title = wTitle.trim();
     if (!title) {
       setActionError("Task title is required.");
+      setWizardStep(1);
       return;
     }
 
-    const owner = newOwner.trim();
+    const owner = wOwner.trim();
+
+    const payload: {
+      title: string;
+      owner: string | null;
+      frequency: NewTaskType;
+      estHoursPm: string | null;
+      weeklyDays?: number[];
+      dailyTime?: string | null;
+      dueAt?: string | null;
+    } = {
+      title,
+      owner: owner ? owner : null,
+      frequency: wType,
+      estHoursPm: wHrs.trim() ? wHrs.trim() : null,
+    };
+
+    // Due / schedule
+    if (wType === "weekly") {
+      payload.weeklyDays = [wWeeklyDay];
+      payload.dailyTime = wTime.trim() ? wTime.trim() : null;
+    } else if (wType === "daily") {
+      payload.dailyTime = wTime.trim() ? wTime.trim() : null;
+    } else {
+      // monthly / adhoc
+      payload.dueAt = wDueDate ? new Date(wDueDate).toISOString() : null;
+    }
 
     try {
       const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          title,
-          owner: owner ? owner : null,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -285,8 +332,7 @@ export default function Home() {
         return;
       }
 
-      setNewTitle("");
-      setNewOwner("");
+      setWizardOpen(false);
       await refresh();
     } catch (e) {
       setActionError(e instanceof Error ? e.message : "Create failed (network error).");
@@ -583,29 +629,182 @@ export default function Home() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <input
-              className="h-10 w-[280px] rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
-              placeholder="New task title…"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void createTask();
-              }}
-            />
-            <input
-              className="h-10 w-[160px] rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
-              placeholder="Owner…"
-              value={newOwner}
-              list="owner-datalist"
-              onChange={(e) => setNewOwner(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void createTask();
-              }}
-            />
+            {/* New task wizard modal */}
+            {wizardOpen ? (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+                <div className="w-full max-w-2xl rounded border border-white/15 bg-slate-950 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold">New task</div>
+                      <div className="mt-1 text-xs text-white/60">
+                        Step {wizardStep} of 3
+                      </div>
+                    </div>
+                    <button
+                      className="jam-btn h-9"
+                      type="button"
+                      onClick={() => setWizardOpen(false)}
+                    >
+                      Close
+                    </button>
+                  </div>
+
+                  {wizardStep === 1 ? (
+                    <div className="mt-4 space-y-3">
+                      <div>
+                        <div className="text-xs text-white/60">Task title</div>
+                        <input
+                          className="mt-1 h-10 w-full rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                          value={wTitle}
+                          onChange={(e) => setWTitle(e.target.value)}
+                          placeholder="e.g. Accrued expenses"
+                          autoFocus
+                        />
+                      </div>
+
+                      <div>
+                        <div className="text-xs text-white/60">Type</div>
+                        <select
+                          className="mt-1 h-10 w-full rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                          value={wType}
+                          onChange={(e) => setWType(e.target.value as NewTaskType)}
+                        >
+                          <option value="monthly">Monthly</option>
+                          <option value="weekly">Weekly</option>
+                          <option value="daily">Daily</option>
+                          <option value="adhoc">Adhoc</option>
+                        </select>
+                        <div className="mt-1 text-[11px] text-white/50">
+                          Default is Monthly.
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {wizardStep === 2 ? (
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <div className="text-xs text-white/60">Owner (optional)</div>
+                        <input
+                          className="mt-1 h-10 w-full rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                          value={wOwner}
+                          list="owner-datalist"
+                          onChange={(e) => setWOwner(e.target.value)}
+                          placeholder="e.g. Kylie"
+                          autoFocus
+                        />
+                      </div>
+                      <div>
+                        <div className="text-xs text-white/60">Budget hours (Hrs)</div>
+                        <input
+                          className="mt-1 h-10 w-full rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                          value={wHrs}
+                          onChange={(e) => setWHrs(e.target.value)}
+                          placeholder="e.g. 1, 0.5, 2"
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {wizardStep === 3 ? (
+                    <div className="mt-4 space-y-3">
+                      {wType === "monthly" || wType === "adhoc" ? (
+                        <div>
+                          <div className="text-xs text-white/60">Due date (optional)</div>
+                          <input
+                            type="date"
+                            className="mt-1 h-10 w-full rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                            value={wDueDate}
+                            onChange={(e) => setWDueDate(e.target.value)}
+                            autoFocus
+                          />
+                        </div>
+                      ) : null}
+
+                      {wType === "weekly" ? (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <div className="text-xs text-white/60">Day</div>
+                            <select
+                              className="mt-1 h-10 w-full rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                              value={String(wWeeklyDay)}
+                              onChange={(e) => setWWeeklyDay(Number(e.target.value))}
+                              autoFocus
+                            >
+                              <option value="1">Monday</option>
+                              <option value="2">Tuesday</option>
+                              <option value="3">Wednesday</option>
+                              <option value="4">Thursday</option>
+                              <option value="5">Friday</option>
+                            </select>
+                          </div>
+                          <div>
+                            <div className="text-xs text-white/60">Time (optional)</div>
+                            <input
+                              type="time"
+                              className="mt-1 h-10 w-full rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                              value={wTime}
+                              onChange={(e) => setWTime(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {wType === "daily" ? (
+                        <div>
+                          <div className="text-xs text-white/60">Time (optional) — runs Mon–Fri</div>
+                          <input
+                            type="time"
+                            className="mt-1 h-10 w-full rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                            value={wTime}
+                            onChange={(e) => setWTime(e.target.value)}
+                            autoFocus
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+                    <button
+                      className="jam-btn h-9"
+                      type="button"
+                      onClick={() =>
+                        setWizardStep((s) => (s === 1 ? 1 : s === 2 ? 1 : 2))
+                      }
+                      disabled={wizardStep === 1}
+                    >
+                      Back
+                    </button>
+
+                    <div className="flex flex-wrap gap-2">
+                      {wizardStep < 3 ? (
+                        <button
+                          className="jam-btn jam-btn-primary h-9"
+                          type="button"
+                          onClick={() => setWizardStep((s) => (s === 1 ? 2 : 3))}
+                        >
+                          Next
+                        </button>
+                      ) : (
+                        <button
+                          className="jam-btn jam-btn-primary h-9"
+                          type="button"
+                          onClick={() => void createTaskFromWizard()}
+                        >
+                          Create task
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             <button
               className="jam-btn jam-btn-primary h-10"
               type="button"
-              onClick={() => void createTask()}
+              onClick={() => openWizard()}
             >
               New task
             </button>
