@@ -1490,7 +1490,7 @@ function GroupedRows({
                     <input
                       type="file"
                       className="hidden"
-                      accept="application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                      accept="application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,image/jpeg"
                       onChange={async (e) => {
                         const f = e.target.files?.[0];
                         if (!f) return;

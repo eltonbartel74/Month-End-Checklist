@@ -38,6 +38,7 @@ export async function POST(
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/vnd.ms-excel",
+    "image/jpeg",
   ];
 
   if (!allowed.includes(contentType)) {
