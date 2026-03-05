@@ -56,7 +56,8 @@ export default function Home() {
   const [wType, setWType] = useState<NewTaskType>("monthly");
   const [wOwner, setWOwner] = useState("");
   const [wHrs, setWHrs] = useState("");
-  const [wDueDate, setWDueDate] = useState(""); // YYYY-MM-DD
+  const [wDueDate, setWDueDate] = useState(""); // YYYY-MM-DD (adhoc only)
+  const [wMonthlyDay, setWMonthlyDay] = useState<number>(7); // monthly due = day-of-month
   const [wWeeklyDay, setWWeeklyDay] = useState<number>(1); // 1=Mon .. 5=Fri
   const [wTime, setWTime] = useState(""); // HH:MM
 
@@ -278,6 +279,7 @@ export default function Home() {
     setWOwner("");
     setWHrs("");
     setWDueDate("");
+    setWMonthlyDay(7);
     setWWeeklyDay(1);
     setWTime("");
     setWizardOpen(true);
@@ -301,6 +303,7 @@ export default function Home() {
       weeklyDays?: number[];
       dailyTime?: string | null;
       dueAt?: string | null;
+      monthlyDay?: number | null;
     } = {
       title,
       owner: owner ? owner : null,
@@ -314,8 +317,11 @@ export default function Home() {
       payload.dailyTime = wTime.trim() ? wTime.trim() : null;
     } else if (wType === "daily") {
       payload.dailyTime = wTime.trim() ? wTime.trim() : null;
+    } else if (wType === "monthly") {
+      payload.monthlyDay = Number.isFinite(wMonthlyDay) ? wMonthlyDay : null;
+      payload.dueAt = null;
     } else {
-      // monthly / adhoc
+      // adhoc
       payload.dueAt = wDueDate ? new Date(wDueDate).toISOString() : null;
     }
 
@@ -708,9 +714,28 @@ export default function Home() {
 
                   {wizardStep === 3 ? (
                     <div className="mt-4 space-y-3">
-                      {wType === "monthly" || wType === "adhoc" ? (
+                      {wType === "monthly" ? (
                         <div>
-                          <div className="text-xs text-white/60">Due date (optional)</div>
+                          <div className="text-xs text-white/60">Due day of month</div>
+                          <select
+                            className="mt-1 h-10 w-full rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                            value={String(wMonthlyDay)}
+                            onChange={(e) => setWMonthlyDay(Number(e.target.value))}
+                            autoFocus
+                          >
+                            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                              <option key={d} value={String(d)}>
+                                {d}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="mt-1 text-[11px] text-white/50">
+                            Monthly tasks repeat — this is the day of the month (e.g. 7 = the 7th).
+                          </div>
+                        </div>
+                      ) : wType === "adhoc" ? (
+                        <div>
+                          <div className="text-xs text-white/60">Due date (DD/MM/YYYY)</div>
                           <input
                             type="date"
                             className="mt-1 h-10 w-full rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
@@ -1823,6 +1848,23 @@ function GroupedRows({
                       </button>
                     </div>
                   )
+                ) : (t.frequency ?? "").toLowerCase() === "monthly" ? (
+                  <select
+                    className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
+                    value={String(t.monthlyDay ?? 7)}
+                    onChange={(e) =>
+                      void updateTask(t.id, {
+                        monthlyDay: Number(e.target.value),
+                        dueAt: null,
+                      })
+                    }
+                  >
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <option key={d} value={String(d)}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
                 ) : (
                   <input
                     type="date"
