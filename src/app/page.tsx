@@ -1155,6 +1155,15 @@ function addDaysUtc(d: Date, days: number) {
   return x;
 }
 
+function lastBusinessDayOfPeriodMonthSa(period: string) {
+  const p = parsePeriod(period);
+  if (!p) return null;
+  // last day of the period month
+  let d = new Date(Date.UTC(p.year, p.month, 0));
+  while (!isBusinessDay(d)) d = addDaysUtc(d, -1); // roll back to business day
+  return d;
+}
+
 function monthlyDueForPeriodSa(period: string, monthlyDay: number | null) {
   // Period is the month being closed (e.g. 2026-02). Monthly task due dates are in the *following* month.
   const p = parsePeriod(period);
@@ -1176,6 +1185,12 @@ function monthlyDueForPeriodSa(period: string, monthlyDay: number | null) {
 
 function dueDateForKpi(t: Task, period: string) {
   const f = (t.frequency ?? "").toLowerCase();
+
+  // Special-case milestone: should be done at end of the period month (not next month)
+  if ((t.title ?? "").trim() === "Bank reconciliations complete (EOM)") {
+    return lastBusinessDayOfPeriodMonthSa(period);
+  }
+
   if (f === "monthly") {
     return monthlyDueForPeriodSa(period, t.monthlyDay);
   }
