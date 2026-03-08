@@ -1971,6 +1971,12 @@ const GroupedRows = React.memo(function GroupedRows({
                         title.includes("jamieson group monthly reporting model") ||
                         title.includes("monthly management board report pack finalised");
 
+                      const isTaxEndTask =
+                        title.includes("bas lodgement") ||
+                        title.includes("bas reconciliation") ||
+                        title.includes("diesel fuel credit") ||
+                        title.includes("fbt accrual");
+
                       // Gate 1: "Lock Posting Periods" cannot be marked DONE until all other monthly tasks are DONE
                       if (isLockPostingPeriods) {
                         const remaining = tasks.filter((x) => {
@@ -1988,10 +1994,8 @@ const GroupedRows = React.memo(function GroupedRows({
                         }
                       }
 
-                      // Gate 2: reporting tasks can’t be marked DONE until all other monthly tasks are DONE
-                      // (excluding "Lock Posting Periods")
-                      if (isMonthlyGateReport) {
-                        const remaining = tasks.filter((x) => {
+                      const monthlyRemainingExcludingLockAndTax = () =>
+                        tasks.filter((x) => {
                           if (x.id === t.id) return false;
                           const f = (x.frequency ?? "").toLowerCase();
                           if (f !== "monthly") return false;
@@ -2003,20 +2007,38 @@ const GroupedRows = React.memo(function GroupedRows({
                             xt.includes("period");
                           if (xIsLock) return false;
 
-                          // Also exclude these from the prerequisite set
-                          const xIsExcludedPrereq =
+                          const xIsTax =
                             xt.includes("bas lodgement") ||
                             xt.includes("bas reconciliation") ||
                             xt.includes("diesel fuel credit") ||
                             xt.includes("fbt accrual");
-                          if (xIsExcludedPrereq) return false;
+                          if (xIsTax) return false;
 
                           return x.status !== "DONE";
                         });
+
+                      // Gate 2: reporting tasks can’t be marked DONE until all other monthly tasks are DONE
+                      // (excluding "Lock Posting Periods" + tax end tasks)
+                      if (isMonthlyGateReport) {
+                        const remaining = monthlyRemainingExcludingLockAndTax();
                         if (remaining.length) {
                           if (typeof window !== "undefined") {
                             window.alert(
-                              `Can’t complete "${t.title}": ${remaining.length} other monthly task(s) still not DONE (excluding Lock Posting Periods).`
+                              `Can’t complete "${t.title}": ${remaining.length} other monthly task(s) still not DONE (excluding Lock Posting Periods + BAS/DFC/FBT).`
+                            );
+                          }
+                          return;
+                        }
+                      }
+
+                      // Gate 3: BAS/DFC/FBT tasks can’t be marked DONE until all other monthly tasks are DONE
+                      // (excluding "Lock Posting Periods" + these tax end tasks)
+                      if (isTaxEndTask) {
+                        const remaining = monthlyRemainingExcludingLockAndTax();
+                        if (remaining.length) {
+                          if (typeof window !== "undefined") {
+                            window.alert(
+                              `Can’t complete "${t.title}": ${remaining.length} other monthly task(s) still not DONE (excluding Lock Posting Periods + BAS/DFC/FBT).`
                             );
                           }
                           return;
