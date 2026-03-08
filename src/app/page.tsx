@@ -968,6 +968,18 @@ export default function Home() {
 
         <div className="mt-4 overflow-x-auto">
           <table className="w-full border-collapse text-left text-sm table-fixed">
+            <colgroup>
+              <col style={{ width: 44 }} />
+              <col style={{ width: 420 }} />
+              <col style={{ width: 140 }} />
+              <col style={{ width: 120 }} />
+              <col style={{ width: 86 }} />
+              <col style={{ width: 70 }} />
+              <col style={{ width: 260 }} />
+              <col style={{ width: 140 }} />
+              <col style={{ width: 120 }} />
+              <col style={{ width: 220 }} />
+            </colgroup>
             <thead>
               <tr className="border-b border-white/10 text-xs text-white/70">
                 <th className="py-2 pr-3">
@@ -990,16 +1002,15 @@ export default function Home() {
                     }}
                   />
                 </th>
-                <th className="py-2 pr-3 w-[44px]">&nbsp;</th>
-                <th className="py-2 pr-3 w-[420px]">Task</th>
-                <th className="py-2 pr-3 w-[140px]">Owner</th>
-                <th className="py-2 pr-3 w-[120px]">Status</th>
-                <th className="py-2 pr-3 w-[86px]">WP</th>
-                <th className="py-2 pr-3 w-[70px]">Hrs</th>
-                <th className="py-2 pr-3 w-[260px]">Dependency</th>
-                <th className="py-2 pr-3 w-[140px]">Promised date</th>
-                <th className="py-2 pr-3 w-[120px]">ETA</th>
-                <th className="py-2 pr-3 w-[220px]">Comments</th>
+                <th className="py-2 pr-3">Task</th>
+                <th className="py-2 pr-3">Owner</th>
+                <th className="py-2 pr-3">Status</th>
+                <th className="py-2 pr-3">WP</th>
+                <th className="py-2 pr-3">Hrs</th>
+                <th className="py-2 pr-3">Dependency</th>
+                <th className="py-2 pr-3">Promised date</th>
+                <th className="py-2 pr-3">ETA</th>
+                <th className="py-2 pr-3">Comments</th>
               </tr>
             </thead>
             <tbody>
