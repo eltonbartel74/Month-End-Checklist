@@ -972,6 +972,7 @@ export default function Home() {
               ) : (
                 <GroupedRows
                   tasks={visibleTasks}
+                  allTasks={tasks}
                   period={period}
                   selectedIds={selectedIds}
                   setSelectedIds={setSelectedIds}
@@ -1508,6 +1509,7 @@ type Attachment = {
 
 function GroupedRows({
   tasks,
+  allTasks,
   period,
   selectedIds,
   setSelectedIds,
@@ -1517,6 +1519,7 @@ function GroupedRows({
   onUpload,
 }: {
   tasks: Task[];
+  allTasks: Task[];
   period: string;
   selectedIds: string[];
   setSelectedIds: React.Dispatch<React.SetStateAction<string[]>>;
@@ -1540,16 +1543,16 @@ function GroupedRows({
 
   const depOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const t of tasks) {
+    for (const t of allTasks) {
       const title = (t.title ?? "").trim();
       if (title) set.add(title);
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [tasks]);
+  }, [allTasks]);
 
   const dueByTitle = useMemo(() => {
     const map = new Map<string, Date>();
-    for (const t of tasks) {
+    for (const t of allTasks) {
       const title = (t.title ?? "").trim();
       if (!title) continue;
       const due = dueDateForKpi(t, period);
@@ -1557,7 +1560,7 @@ function GroupedRows({
       map.set(title, due);
     }
     return map;
-  }, [tasks, period]);
+  }, [allTasks, period]);
 
   const daily = tasks
     .filter((t) => fx(t) === "daily")
