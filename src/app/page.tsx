@@ -227,7 +227,11 @@ export default function Home() {
     const progressPct =
       budgetedHours && budgetedHours > 0 ? completedHours! / budgetedHours : null;
 
-    const rework = tasks.filter((t) => t.approvalStatus === "CHANGES_REQUESTED").length;
+    const rework = tasks.filter(
+      (t) =>
+        (t.frequency ?? "").toLowerCase() === "monthly" &&
+        t.approvalStatus === "CHANGES_REQUESTED"
+    ).length;
 
     return {
       total,
@@ -2123,42 +2127,65 @@ const GroupedRows = React.memo(function GroupedRows({
                 />
               </td>
               <td className="py-2 pr-3">
-                <div className="space-y-1">
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="jam-btn h-8 px-3 text-xs border border-emerald-300/30 text-emerald-100 hover:bg-emerald-500/10"
-                      onClick={() =>
-                        void updateTask(t.id, {
-                          approvalStatus: "APPROVED",
-                          reviewedBy: "Manager",
-                          reviewedAt: new Date().toISOString(),
-                        })
-                      }
-                      title="Manager confirms working paper has been reviewed"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      type="button"
-                      className="jam-btn h-8 px-3 text-xs border border-amber-300/30 text-amber-100 hover:bg-amber-500/10"
-                      onClick={() => {
-                        const note =
-                          typeof window !== "undefined"
-                            ? window.prompt("What rework/corrections are required?", t.reviewNotes ?? "")
-                            : null;
-                        void updateTask(t.id, {
-                          approvalStatus: "CHANGES_REQUESTED",
-                          reviewedBy: "Manager",
-                          reviewedAt: new Date().toISOString(),
-                          reviewNotes: note === null ? (t.reviewNotes ?? null) : note || null,
-                        });
-                      }}
-                      title="Record that rework/corrections are required"
-                    >
-                      Rework required
-                    </button>
+                {((t.frequency ?? "").toLowerCase() === "monthly") ? (
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="jam-btn h-8 px-3 text-xs border border-emerald-300/30 text-emerald-100 hover:bg-emerald-500/10"
+                        onClick={() =>
+                          void updateTask(t.id, {
+                            approvalStatus: "APPROVED",
+                            reviewedBy: "Manager",
+                            reviewedAt: new Date().toISOString(),
+                          })
+                        }
+                        title="Manager confirms working paper has been reviewed"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        className="jam-btn h-8 px-3 text-xs border border-amber-300/30 text-amber-100 hover:bg-amber-500/10"
+                        onClick={() => {
+                          const note =
+                            typeof window !== "undefined"
+                              ? window.prompt(
+                                  "What rework/corrections are required?",
+                                  t.reviewNotes ?? ""
+                                )
+                              : null;
+                          void updateTask(t.id, {
+                            approvalStatus: "CHANGES_REQUESTED",
+                            reviewedBy: "Manager",
+                            reviewedAt: new Date().toISOString(),
+                            reviewNotes: note === null ? (t.reviewNotes ?? null) : note || null,
+                          });
+                        }}
+                        title="Record that rework/corrections are required"
+                      >
+                        Rework required
+                      </button>
 
+                      <button
+                        type="button"
+                        className="jam-btn h-8 px-3 text-xs border border-red-400/25 text-red-200/80 hover:bg-red-400/10"
+                        onClick={() => void deleteTask(t.id, t.title)}
+                        title="Delete task"
+                      >
+                        Delete
+                      </button>
+                    </div>
+
+                    <div className="text-[11px] text-white/60">
+                      {(t.approvalStatus ?? "NOT_SUBMITTED").replaceAll("_", " ")}
+                      {t.reviewedAt
+                        ? ` • ${new Date(t.reviewedAt).toLocaleDateString()}`
+                        : ""}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       className="jam-btn h-8 px-3 text-xs border border-red-400/25 text-red-200/80 hover:bg-red-400/10"
@@ -2168,12 +2195,7 @@ const GroupedRows = React.memo(function GroupedRows({
                       Delete
                     </button>
                   </div>
-
-                  <div className="text-[11px] text-white/60">
-                    {(t.approvalStatus ?? "NOT_SUBMITTED").replaceAll("_", " ")}
-                    {t.reviewedAt ? ` • ${new Date(t.reviewedAt).toLocaleDateString()}` : ""}
-                  </div>
-                </div>
+                )}
               </td>
               <td className="py-2 pr-3 min-w-0">
                 <input
