@@ -5,7 +5,14 @@ import { requireAuthedUser } from "@/lib/auth";
 export async function GET() {
   const errorId = `tasks_get_${Date.now()}`;
   try {
-    await requireAuthedUser();
+    try {
+      await requireAuthedUser();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "UNAUTHENTICATED";
+      const status = msg === "NOT_ALLOWED" ? 403 : 401;
+      return NextResponse.json({ error: "Not authorised" }, { status });
+    }
+
     const tasks = await prisma.task.findMany({
       include: { _count: { select: { attachments: true } } },
       orderBy: [{ createdAt: "asc" }],
@@ -44,7 +51,14 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  await requireAuthedUser();
+  try {
+    await requireAuthedUser();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "UNAUTHENTICATED";
+    const status = msg === "NOT_ALLOWED" ? 403 : 401;
+    return NextResponse.json({ error: "Not authorised" }, { status });
+  }
+
   const body = (await req.json()) as {
     title: string;
     owner?: string;

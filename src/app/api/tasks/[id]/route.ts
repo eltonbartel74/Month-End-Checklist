@@ -9,7 +9,15 @@ export async function PATCH(
 ) {
   const errorId = `task_patch_${Date.now()}`;
   try {
-    const user = await requireAuthedUser();
+    let user;
+    try {
+      user = await requireAuthedUser();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "UNAUTHENTICATED";
+      const status = msg === "NOT_ALLOWED" ? 403 : 401;
+      return NextResponse.json({ error: "Not authorised" }, { status });
+    }
+
     const { id } = await params;
 
     const body = (await req.json()) as {
@@ -258,7 +266,15 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await requireAuthedUser();
+  let user;
+  try {
+    user = await requireAuthedUser();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "UNAUTHENTICATED";
+    const status = msg === "NOT_ALLOWED" ? 403 : 401;
+    return NextResponse.json({ error: "Not authorised" }, { status });
+  }
+
   if (user.role !== "MANAGER") {
     return NextResponse.json({ error: "Not authorised" }, { status: 403 });
   }
