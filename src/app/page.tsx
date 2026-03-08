@@ -1996,11 +1996,21 @@ const GroupedRows = React.memo(function GroupedRows({
                           const f = (x.frequency ?? "").toLowerCase();
                           if (f !== "monthly") return false;
                           const xt = (x.title ?? "").toLowerCase();
+
                           const xIsLock =
                             xt.includes("lock") &&
                             xt.includes("posting") &&
                             xt.includes("period");
                           if (xIsLock) return false;
+
+                          // Also exclude these from the prerequisite set
+                          const xIsExcludedPrereq =
+                            xt.includes("bas lodgement") ||
+                            xt.includes("bas reconciliation") ||
+                            xt.includes("diesel fuel credit") ||
+                            xt.includes("fbt accrual");
+                          if (xIsExcludedPrereq) return false;
+
                           return x.status !== "DONE";
                         });
                         if (remaining.length) {
