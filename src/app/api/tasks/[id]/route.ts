@@ -106,67 +106,123 @@ export async function PATCH(
     }
   }
 
-  const task = await prisma.task.update({
-    where: { id },
-    data: {
-      title: body.title?.trim(),
-      owner: body.owner === null ? null : body.owner?.trim(),
+  const task = await prisma.$transaction(async (tx) => {
+    const newTitle = body.title === undefined ? undefined : body.title.trim();
+    const oldTitle = (current.title ?? "").trim();
 
-      status: rolledStatus ?? body.status,
+    const updated = await tx.task.update({
+      where: { id },
+      data: {
+        title: newTitle,
+        owner: body.owner === null ? null : body.owner?.trim(),
 
-      frequency: body.frequency === null ? null : body.frequency?.trim(),
-      estHoursPm: body.estHoursPm === null ? null : body.estHoursPm?.trim(),
-      dependency: body.dependency === null ? null : body.dependency?.trim(),
+        status: rolledStatus ?? body.status,
 
-      repeatEnabled: body.repeatEnabled === null ? undefined : body.repeatEnabled,
-      dailyTime: body.dailyTime === null ? null : body.dailyTime?.trim(),
-      weeklyDays:
-        body.weeklyDays === null
-          ? []
-          : body.weeklyDays
-            ? body.weeklyDays.map((x) => Number(x)).filter((x) => Number.isFinite(x))
-            : undefined,
-      monthlyDay: body.monthlyDay === null ? null : body.monthlyDay,
+        frequency: body.frequency === null ? null : body.frequency?.trim(),
+        estHoursPm: body.estHoursPm === null ? null : body.estHoursPm?.trim(),
+        dependency: body.dependency === null ? null : body.dependency?.trim(),
 
-      nextDueAt:
-        rolledNextDueAt ??
-        (body.nextDueAt === null
-          ? null
-          : body.nextDueAt
-            ? new Date(body.nextDueAt)
-            : undefined),
-      lastDoneAt: rolledLastDoneAt ?? undefined,
+        repeatEnabled: body.repeatEnabled === null ? undefined : body.repeatEnabled,
+        dailyTime: body.dailyTime === null ? null : body.dailyTime?.trim(),
+        weeklyDays:
+          body.weeklyDays === null
+            ? []
+            : body.weeklyDays
+              ? body.weeklyDays
+                  .map((x) => Number(x))
+                  .filter((x) => Number.isFinite(x))
+              : undefined,
+        monthlyDay: body.monthlyDay === null ? null : body.monthlyDay,
 
-      dueAt:
-        body.dueAt === null
-          ? null
-          : body.dueAt
-            ? new Date(body.dueAt)
-            : undefined,
-      etaAt:
-        body.etaAt === null
-          ? null
-          : body.etaAt
-            ? new Date(body.etaAt)
-            : undefined,
-      blocker: body.blocker === null ? null : body.blocker?.trim(),
-      notes: body.notes === null ? null : body.notes?.trim(),
+        nextDueAt:
+          rolledNextDueAt ??
+          (body.nextDueAt === null
+            ? null
+            : body.nextDueAt
+              ? new Date(body.nextDueAt)
+              : undefined),
+        lastDoneAt: rolledLastDoneAt ?? undefined,
 
-      approvalStatus:
-        body.approvalStatus === null
-          ? undefined
-          : body.approvalStatus
-            ? body.approvalStatus
-            : undefined,
-      reviewedBy: body.reviewedBy === null ? null : body.reviewedBy?.trim(),
-      reviewedAt:
-        body.reviewedAt === null
-          ? null
-          : body.reviewedAt
-            ? new Date(body.reviewedAt)
-            : undefined,
-      reviewNotes: body.reviewNotes === null ? null : body.reviewNotes?.trim(),
-    },
+        dueAt:
+          body.dueAt === null
+            ? null
+            : body.dueAt
+              ? new Date(body.dueAt)
+              : undefined,
+        etaAt:
+          body.etaAt === null
+            ? null
+            : body.etaAt
+              ? new Date(body.etaAt)
+              : undefined,
+        blocker: body.blocker === null ? null : body.blocker?.trim(),
+        notes: body.notes === null ? null : body.notes?.trim(),
+
+        approvalStatus:
+          body.approvalStatus === null
+            ? undefined
+            : body.approvalStatus
+              ? body.approvalStatus
+              : undefined,
+        reviewedBy: body.reviewedBy === null ? null : body.reviewedBy?.trim(),
+        reviewedAt:
+          body.reviewedAt === null
+            ? null
+            : body.reviewedAt
+              ? new Date(body.reviewedAt)
+              : undefined,
+        reviewNotes: body.reviewNotes === null ? null : body.reviewNotes?.trim(),
+      },
+    });
+
+    // If a task title changes, update dependency references that use titles.
+    if (typeof newTitle === "string" && newTitle && oldTitle && newTitle !== oldTitle) {
+      const candidates = await tx.task.findMany({
+        where: {
+          dependency: {
+            contains: oldTitle,
+            mode: "insensitive",
+          },
+        },
+        select: { id: true, dependency: true },
+      });
+
+      const parseDeps = (raw: string | null) => {
+        if (!raw) return [] as string[];
+        const s = raw.trim();
+        if (!s) return [] as string[];
+        if (s.startsWith("[")) {
+          try {
+            const arr = JSON.parse(s);
+            return Array.isArray(arr) ? arr.map(String) : [];
+          } catch {
+            return [];
+          }
+        }
+        return [s];
+      };
+
+      const stringifyDeps = (deps: string[]) => {
+        const clean = deps.map((d) => String(d).trim()).filter(Boolean);
+        if (clean.length === 0) return null;
+        if (clean.length === 1) return clean[0];
+        return JSON.stringify(clean);
+      };
+
+      for (const c of candidates) {
+        const deps = parseDeps(c.dependency);
+        if (!deps.length) continue;
+        const next = deps.map((d) => (d.trim() === oldTitle ? newTitle : d));
+        const nextRaw = stringifyDeps(next);
+        if ((nextRaw ?? null) === (c.dependency ?? null)) continue;
+        await tx.task.update({
+          where: { id: c.id },
+          data: { dependency: nextRaw },
+        });
+      }
+    }
+
+    return updated;
   });
 
     return NextResponse.json({ task });
