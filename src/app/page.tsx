@@ -1213,6 +1213,26 @@ function isBankRecsMilestone(t: Task) {
   return title.includes("bank") && title.includes("recon") && title.includes("(eom)");
 }
 
+function isMonthEndWindow(period: string) {
+  // Enforce stricter rules only when closing the most recent month (i.e., last month)
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth() + 1; // 1-12
+  const last = m === 1 ? { y: y - 1, m: 12 } : { y, m: m - 1 };
+  const lastPeriod = `${last.y}-${String(last.m).padStart(2, "0")}`;
+  return period === lastPeriod;
+}
+
+function isMonthEndBankRecsUploadRequiredTask(t: Task) {
+  const title = (t.title ?? "").toLowerCase();
+  return (
+    title.includes("cash at bank accounts reconciled") ||
+    title.includes("commonwealth bank credit card reconciliations") ||
+    title.includes("nab credit card reconciliations") ||
+    title.includes("westpac credit card transactions")
+  );
+}
+
 function dueDateForKpi(t: Task, period: string) {
   const f = (t.frequency ?? "").toLowerCase();
 
@@ -1961,6 +1981,21 @@ const GroupedRows = React.memo(function GroupedRows({
 
                     if (next === "DONE") {
                       const title = (t.title ?? "").toLowerCase();
+
+                      // Month-end rule: for selected bank rec tasks, require an upload before marking DONE
+                      // but only when we're closing the most recent period ("month end window").
+                      if (
+                        isMonthEndWindow(period) &&
+                        isMonthEndBankRecsUploadRequiredTask(t) &&
+                        !(t._count?.attachments && t._count.attachments > 0)
+                      ) {
+                        if (typeof window !== "undefined") {
+                          window.alert(
+                            `Can’t complete "${t.title}" until a working paper is uploaded (month-end only).`
+                          );
+                        }
+                        return;
+                      }
 
                       const isLockPostingPeriods =
                         title.includes("lock") &&
