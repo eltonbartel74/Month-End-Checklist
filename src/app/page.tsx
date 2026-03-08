@@ -100,6 +100,15 @@ export default function Home() {
         });
 
         if (!res.ok) {
+          // Auth: redirect to login on 401/403
+          if (res.status === 401 || res.status === 403) {
+            if (typeof window !== "undefined") {
+              const next = encodeURIComponent(window.location.pathname || "/");
+              window.location.href = `/login?next=${next}`;
+              return;
+            }
+          }
+
           const body = (await res.json().catch(() => null)) as
             | { error?: string; errorId?: string }
             | null;
