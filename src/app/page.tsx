@@ -1959,10 +1959,20 @@ const GroupedRows = React.memo(function GroupedRows({
                   onChange={(v) => {
                     const next = String(v ?? "");
 
-                    // Special-case gate: "Lock Posting Periods" cannot be marked DONE until all other monthly tasks are DONE
                     if (next === "DONE") {
                       const title = (t.title ?? "").toLowerCase();
-                      if (title.includes("lock") && title.includes("posting") && title.includes("period")) {
+
+                      const isLockPostingPeriods =
+                        title.includes("lock") &&
+                        title.includes("posting") &&
+                        title.includes("period");
+
+                      const isMonthlyGateReport =
+                        title.includes("jamieson group monthly reporting model") ||
+                        title.includes("monthly management board report pack finalised");
+
+                      // Gate 1: "Lock Posting Periods" cannot be marked DONE until all other monthly tasks are DONE
+                      if (isLockPostingPeriods) {
                         const remaining = tasks.filter((x) => {
                           if (x.id === t.id) return false;
                           const f = (x.frequency ?? "").toLowerCase();
@@ -1972,6 +1982,31 @@ const GroupedRows = React.memo(function GroupedRows({
                           if (typeof window !== "undefined") {
                             window.alert(
                               `Can’t complete "${t.title}": ${remaining.length} monthly task(s) still not DONE.`
+                            );
+                          }
+                          return;
+                        }
+                      }
+
+                      // Gate 2: reporting tasks can’t be marked DONE until all other monthly tasks are DONE
+                      // (excluding "Lock Posting Periods")
+                      if (isMonthlyGateReport) {
+                        const remaining = tasks.filter((x) => {
+                          if (x.id === t.id) return false;
+                          const f = (x.frequency ?? "").toLowerCase();
+                          if (f !== "monthly") return false;
+                          const xt = (x.title ?? "").toLowerCase();
+                          const xIsLock =
+                            xt.includes("lock") &&
+                            xt.includes("posting") &&
+                            xt.includes("period");
+                          if (xIsLock) return false;
+                          return x.status !== "DONE";
+                        });
+                        if (remaining.length) {
+                          if (typeof window !== "undefined") {
+                            window.alert(
+                              `Can’t complete "${t.title}": ${remaining.length} other monthly task(s) still not DONE (excluding Lock Posting Periods).`
                             );
                           }
                           return;
