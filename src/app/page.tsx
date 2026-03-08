@@ -2505,8 +2505,9 @@ const GroupedRows = React.memo(function GroupedRows({
                 )}
               </td>
               <td className="py-2 pr-3">
-                <input
-                  className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
+                <textarea
+                  rows={3}
+                  className="w-full min-w-0 rounded border border-white/10 bg-black/10 px-2 py-1 text-white/90 leading-snug resize-y"
                   value={t.blocker ?? ""}
                   placeholder="–"
                   onChange={(e) =>
