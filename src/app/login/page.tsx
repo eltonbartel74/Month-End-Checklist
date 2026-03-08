@@ -66,8 +66,9 @@ export default function LoginPage() {
                 const { error } = await sb.auth.signInWithOtp({
                   email: e,
                   options: {
-                    // pre-registered users only
-                    shouldCreateUser: false,
+                    // Allow creation, but only after allowlist check above.
+                    // This avoids Supabase "Signups not allowed" while still enforcing preregistration.
+                    shouldCreateUser: true,
                   },
                 });
                 if (error) throw error;
