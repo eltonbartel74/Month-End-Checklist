@@ -1846,8 +1846,9 @@ function GroupedRows({
                 />
               </td>
               <td className="py-2 pr-3 relative">
-                <input
-                  className="w-full min-w-0 rounded border border-white/10 bg-black/10 px-2 py-1 overflow-hidden text-ellipsis whitespace-nowrap focus:absolute focus:left-0 focus:top-0 focus:z-20 focus:w-[520px] focus:bg-black/60 focus:shadow-lg"
+                <textarea
+                  rows={2}
+                  className="w-full min-w-0 rounded border border-white/10 bg-black/10 px-2 py-1 leading-snug text-white/90 resize-none whitespace-normal break-words focus:absolute focus:left-0 focus:top-0 focus:z-20 focus:w-[640px] focus:bg-black/60 focus:shadow-lg"
                   value={t.title}
                   title={t.title}
                   onChange={(e) =>
