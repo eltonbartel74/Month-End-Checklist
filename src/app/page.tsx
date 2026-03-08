@@ -449,7 +449,28 @@ export default function Home() {
     }
 
     // Merge canonical server copy (e.g. rolled fields).
-    setTasks((prev) => prev.map((t) => (t.id === id ? res.task : t)));
+    // Also normalise ordering to promised date so the UI never looks "out of order".
+    setTasks((prev) => {
+      const next = prev.map((t) => (t.id === id ? res.task : t));
+      return next
+        .slice()
+        .sort((a, b) => {
+          const fa = (a.frequency ?? "").toLowerCase();
+          const fb = (b.frequency ?? "").toLowerCase();
+
+          const rank = (f: string) =>
+            f === "daily" ? 0 : f === "weekly" ? 1 : f === "adhoc" ? 2 : f === "monthly" ? 3 : 4;
+          const ra = rank(fa);
+          const rb = rank(fb);
+          if (ra !== rb) return ra - rb;
+
+          const da = dueDateForKpi(a, period)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+          const db = dueDateForKpi(b, period)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+          if (da !== db) return da - db;
+
+          return (a.title ?? "").localeCompare(b.title ?? "");
+        });
+    });
     return true;
   }
 
