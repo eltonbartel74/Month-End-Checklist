@@ -2173,7 +2173,7 @@ const GroupedRows = React.memo(function GroupedRows({
                             className={
                               "w-full rounded border px-2 py-1 " +
                               (overdue
-                                ? "border-red-400/60 bg-red-500/15 text-white"
+                                ? "border-red-300 bg-red-500/35 text-white"
                                 : "border-white/10 bg-white text-slate-900")
                             }
                             value={String(t.monthlyDay ?? 7)}
@@ -2229,7 +2229,7 @@ const GroupedRows = React.memo(function GroupedRows({
                         const due = dueDateForKpi(t, period);
                         const overdue = t.status !== "DONE" && !!due && due.getTime() < Date.now();
                         return overdue
-                          ? "border-red-400/60 bg-red-500/15 text-white placeholder:text-red-200/70"
+                          ? "border-red-300 bg-red-500/35 text-white placeholder:text-red-100"
                           : "border-white/10 bg-black/10 text-white";
                       })()
                     }
