@@ -1655,6 +1655,13 @@ const GroupedRows = React.memo(function GroupedRows({
       const da = toTimeSafe(dueDateForKpi(a, period));
       const db = toTimeSafe(dueDateForKpi(b, period));
       if (da !== db) return da - db;
+
+      // When promised dates are identical (common after business-day rollforward),
+      // keep the UI feeling ordered by the selected day-of-month.
+      const ma = a.monthlyDay ?? 99;
+      const mb = b.monthlyDay ?? 99;
+      if (ma !== mb) return ma - mb;
+
       return (a.title ?? "").localeCompare(b.title ?? "");
     });
 
