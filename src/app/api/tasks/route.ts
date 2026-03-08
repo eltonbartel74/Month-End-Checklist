@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { requireAuthedUser } from "@/lib/auth";
 
 export async function GET() {
   const errorId = `tasks_get_${Date.now()}`;
   try {
+    await requireAuthedUser();
     const tasks = await prisma.task.findMany({
       include: { _count: { select: { attachments: true } } },
       orderBy: [{ createdAt: "asc" }],
@@ -42,6 +44,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  await requireAuthedUser();
   const body = (await req.json()) as {
     title: string;
     owner?: string;

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { nextDaily, nextWeekly } from "@/lib/schedule";
 import { NextResponse } from "next/server";
+import { ownerMatchesUser, requireAuthedUser } from "@/lib/auth";
 
 export async function PATCH(
   req: Request,
@@ -8,6 +9,7 @@ export async function PATCH(
 ) {
   const errorId = `task_patch_${Date.now()}`;
   try {
+    const user = await requireAuthedUser();
     const { id } = await params;
 
     const body = (await req.json()) as {
@@ -43,6 +45,29 @@ export async function PATCH(
   const current = await prisma.task.findUnique({ where: { id } });
   if (!current) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  // Manager-only controls for monthly review actions
+  if (body.approvalStatus || body.reviewNotes !== undefined || body.reviewedAt || body.reviewedBy) {
+    if (user.role !== "MANAGER") {
+      return NextResponse.json({ error: "Not authorised" }, { status: 403 });
+    }
+
+    // Can't approve/rework your own tasks (based on owner mapping)
+    if (ownerMatchesUser(current.owner, user)) {
+      return NextResponse.json(
+        { error: "Managers cannot approve/rework their own tasks." },
+        { status: 403 }
+      );
+    }
+
+    const freq = (current.frequency ?? "").toLowerCase();
+    if (freq !== "monthly") {
+      return NextResponse.json(
+        { error: "Approval/rework is only used for monthly tasks." },
+        { status: 400 }
+      );
+    }
   }
 
   const statusRequested = body.status ?? current.status;
@@ -233,6 +258,11 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const user = await requireAuthedUser();
+  if (user.role !== "MANAGER") {
+    return NextResponse.json({ error: "Not authorised" }, { status: 403 });
+  }
+
   const { id } = await params;
   await prisma.task.delete({ where: { id } });
   return NextResponse.json({ ok: true });
