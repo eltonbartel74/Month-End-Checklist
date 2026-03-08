@@ -55,9 +55,8 @@ body {
 
 /* Form controls: improve contrast for native dropdown menus across the app */
 select {
-  /* Don’t force the closed select background colour (lets row-level styles like overdue red win).
+  /* Don’t force the closed select background/text globally (lets row-level styles win).
      We only enforce menu option contrast. */
-  color: var(--jam-navy);
 }
 
 select option {
