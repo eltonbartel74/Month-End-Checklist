@@ -971,14 +971,14 @@ export default function Home() {
             <colgroup>
               <col style={{ width: 44 }} />
               <col style={{ width: 150 }} />
-              <col style={{ width: 600 }} />
+              <col style={{ width: 660 }} />
               <col style={{ width: 120 }} />
               <col style={{ width: 86 }} />
               <col style={{ width: 60 }} />
-              <col style={{ width: 200 }} />
+              <col style={{ width: 180 }} />
               <col style={{ width: 120 }} />
               <col style={{ width: 120 }} />
-              <col style={{ width: 260 }} />
+              <col style={{ width: 240 }} />
             </colgroup>
             <thead>
               <tr className="border-b border-white/10 text-xs text-white/70">
