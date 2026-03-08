@@ -1208,12 +1208,17 @@ function monthlyDueForPeriodSa(period: string, monthlyDay: number | null) {
   return d;
 }
 
+function isBankRecsMilestone(t: Task) {
+  const title = (t.title ?? "").toLowerCase();
+  return title.includes("bank") && title.includes("recon") && title.includes("(eom)");
+}
+
 function dueDateForKpi(t: Task, period: string) {
   const f = (t.frequency ?? "").toLowerCase();
 
   // Special-case milestone: bank recs should be completed on the first available (business) day
   // of the month after the period month.
-  if ((t.title ?? "").trim() === "Bank reconciliations complete (EOM)") {
+  if (isBankRecsMilestone(t)) {
     return firstBusinessDayOfNextMonthSa(period);
   }
 
@@ -2212,6 +2217,15 @@ const GroupedRows = React.memo(function GroupedRows({
                           >
                             {(() => {
                               const dom = t.monthlyDay ?? 7;
+
+                              // Milestone: bank recs uses its own date rule
+                              if (isBankRecsMilestone(t)) {
+                                const d = dueDateForKpi(t, period);
+                                return d
+                                  ? `Milestone → Promised date: ${formatAuDate(d.toISOString())}`
+                                  : "";
+                              }
+
                               const d = monthlyDueForPeriodSa(period, dom);
                               if (!d) return "";
 
