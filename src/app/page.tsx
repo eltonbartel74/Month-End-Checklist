@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { isBusinessDay, isSaPublicHoliday } from "@/lib/schedule";
 import { uploadWorkingPaper } from "@/app/uploadWorkingPaper";
 
@@ -52,14 +52,16 @@ export default function Home() {
   type NewTaskType = "monthly" | "adhoc" | "weekly" | "daily";
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
-  const [wTitle, setWTitle] = useState("");
   const [wType, setWType] = useState<NewTaskType>("monthly");
-  const [wOwner, setWOwner] = useState("");
-  const [wHrs, setWHrs] = useState("");
-  const [wDueDate, setWDueDate] = useState(""); // YYYY-MM-DD (adhoc only)
-  const [wMonthlyDay, setWMonthlyDay] = useState<number>(7); // monthly due = day-of-month
-  const [wWeeklyDay, setWWeeklyDay] = useState<number>(1); // 1=Mon .. 5=Fri
-  const [wTime, setWTime] = useState(""); // HH:MM
+  const wizardDataRef = useRef({
+    title: "",
+    owner: "",
+    hrs: "",
+    dueDate: "", // DD/MM/YYYY (adhoc)
+    monthlyDay: 7,
+    weeklyDay: 1,
+    time: "", // HH:MM
+  });
 
   // Filters
   const [filterOwner, setFilterOwner] = useState<string>("ALL");
@@ -280,26 +282,28 @@ export default function Home() {
   function openWizard() {
     setActionError(null);
     setWizardStep(1);
-    setWTitle("");
     setWType("monthly");
-    setWOwner("");
-    setWHrs("");
-    setWDueDate("");
-    setWMonthlyDay(7);
-    setWWeeklyDay(1);
-    setWTime("");
+    wizardDataRef.current = {
+      title: "",
+      owner: "",
+      hrs: "",
+      dueDate: "",
+      monthlyDay: 7,
+      weeklyDay: 1,
+      time: "",
+    };
     setWizardOpen(true);
   }
 
   async function createTaskFromWizard() {
-    const title = wTitle.trim();
+    const title = wizardDataRef.current.title.trim();
     if (!title) {
       setActionError("Task title is required.");
       setWizardStep(1);
       return;
     }
 
-    const owner = wOwner.trim();
+    const owner = wizardDataRef.current.owner.trim();
 
     const payload: {
       title: string;
@@ -314,22 +318,26 @@ export default function Home() {
       title,
       owner: owner ? owner : null,
       frequency: wType,
-      estHoursPm: wHrs.trim() ? wHrs.trim() : null,
+      estHoursPm: wizardDataRef.current.hrs.trim() ? wizardDataRef.current.hrs.trim() : null,
     };
 
     // Due / schedule
     if (wType === "weekly") {
-      payload.weeklyDays = [wWeeklyDay];
-      payload.dailyTime = wTime.trim() ? wTime.trim() : null;
+      payload.weeklyDays = [wizardDataRef.current.weeklyDay];
+      payload.dailyTime = wizardDataRef.current.time.trim() ? wizardDataRef.current.time.trim() : null;
     } else if (wType === "daily") {
-      payload.dailyTime = wTime.trim() ? wTime.trim() : null;
+      payload.dailyTime = wizardDataRef.current.time.trim() ? wizardDataRef.current.time.trim() : null;
     } else if (wType === "monthly") {
-      payload.monthlyDay = Number.isFinite(wMonthlyDay) ? wMonthlyDay : null;
+      payload.monthlyDay = Number.isFinite(wizardDataRef.current.monthlyDay)
+        ? wizardDataRef.current.monthlyDay
+        : null;
       payload.dueAt = null;
     } else {
       // adhoc
-      payload.dueAt = wDueDate ? parseAuDateToIso(wDueDate) : null;
-      if (wDueDate && !payload.dueAt) {
+      payload.dueAt = wizardDataRef.current.dueDate
+        ? parseAuDateToIso(wizardDataRef.current.dueDate)
+        : null;
+      if (wizardDataRef.current.dueDate && !payload.dueAt) {
         setActionError("Invalid due date. Use DD/MM/YYYY (e.g. 07/03/2026). ");
         setWizardStep(3);
         return;
@@ -672,8 +680,10 @@ export default function Home() {
                         <div className="text-xs text-slate-600">Task title</div>
                         <input
                           className="mt-1 h-10 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400"
-                          value={wTitle}
-                          onChange={(e) => setWTitle(e.target.value)}
+                          defaultValue={wizardDataRef.current.title}
+                          onChange={(e) => {
+                            wizardDataRef.current.title = e.target.value;
+                          }}
                           placeholder="e.g. Accrued expenses"
                           autoFocus
                         />
@@ -704,9 +714,11 @@ export default function Home() {
                         <div className="text-xs text-slate-600">Owner (optional)</div>
                         <input
                           className="mt-1 h-10 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400"
-                          value={wOwner}
+                          defaultValue={wizardDataRef.current.owner}
                           list="owner-datalist"
-                          onChange={(e) => setWOwner(e.target.value)}
+                          onChange={(e) => {
+                            wizardDataRef.current.owner = e.target.value;
+                          }}
                           placeholder="e.g. Kylie"
                           autoFocus
                         />
@@ -715,8 +727,10 @@ export default function Home() {
                         <div className="text-xs text-slate-600">Budget hours (Hrs)</div>
                         <input
                           className="mt-1 h-10 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400"
-                          value={wHrs}
-                          onChange={(e) => setWHrs(e.target.value)}
+                          defaultValue={wizardDataRef.current.hrs}
+                          onChange={(e) => {
+                            wizardDataRef.current.hrs = e.target.value;
+                          }}
                           placeholder="e.g. 1, 0.5, 2"
                         />
                       </div>
@@ -730,8 +744,10 @@ export default function Home() {
                           <div className="text-xs text-slate-600">Due day of month</div>
                           <select
                             className="mt-1 h-10 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none"
-                            value={String(wMonthlyDay)}
-                            onChange={(e) => setWMonthlyDay(Number(e.target.value))}
+                            defaultValue={String(wizardDataRef.current.monthlyDay)}
+                            onChange={(e) => {
+                              wizardDataRef.current.monthlyDay = Number(e.target.value);
+                            }}
                             autoFocus
                           >
                             {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
@@ -749,8 +765,10 @@ export default function Home() {
                           <div className="text-xs text-slate-600">Due date (DD/MM/YYYY)</div>
                           <input
                             className="mt-1 h-10 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400"
-                            value={wDueDate}
-                            onChange={(e) => setWDueDate(e.target.value)}
+                            defaultValue={wizardDataRef.current.dueDate}
+                            onChange={(e) => {
+                              wizardDataRef.current.dueDate = e.target.value;
+                            }}
                             placeholder="DD/MM/YYYY"
                             autoFocus
                           />
@@ -763,8 +781,10 @@ export default function Home() {
                             <div className="text-xs text-slate-600">Day</div>
                             <select
                               className="mt-1 h-10 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none"
-                              value={String(wWeeklyDay)}
-                              onChange={(e) => setWWeeklyDay(Number(e.target.value))}
+                              defaultValue={String(wizardDataRef.current.weeklyDay)}
+                              onChange={(e) => {
+                                wizardDataRef.current.weeklyDay = Number(e.target.value);
+                              }}
                               autoFocus
                             >
                               <option value="1">Monday</option>
@@ -779,8 +799,10 @@ export default function Home() {
                             <input
                               type="time"
                               className="mt-1 h-10 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none"
-                              value={wTime}
-                              onChange={(e) => setWTime(e.target.value)}
+                              defaultValue={wizardDataRef.current.time}
+                              onChange={(e) => {
+                                wizardDataRef.current.time = e.target.value;
+                              }}
                             />
                           </div>
                         </div>
@@ -792,8 +814,10 @@ export default function Home() {
                           <input
                             type="time"
                             className="mt-1 h-10 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none"
-                            value={wTime}
-                            onChange={(e) => setWTime(e.target.value)}
+                            defaultValue={wizardDataRef.current.time}
+                            onChange={(e) => {
+                              wizardDataRef.current.time = e.target.value;
+                            }}
                             autoFocus
                           />
                         </div>
