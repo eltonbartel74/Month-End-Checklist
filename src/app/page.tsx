@@ -1919,13 +1919,7 @@ const GroupedRows = React.memo(function GroupedRows({
                   {g.label}
                   <span className="ml-2 text-white/40">({g.rows.length})</span>
                 </button>
-                <button
-                  type="button"
-                  className="text-xs text-white/50 underline hover:text-white/70"
-                  onClick={() => toggleGroup(g.label)}
-                >
-                  {openGroups[g.label] ? "Hide" : "Show"}
-                </button>
+                <span className="text-xs text-white/0">.</span>
               </div>
             </td>
           </tr>
