@@ -966,19 +966,19 @@ export default function Home() {
           ))}
         </datalist>
 
-        <div className="mt-4 overflow-x-auto">
+        <div className="mt-4 overflow-x-hidden">
           <table className="w-full border-collapse text-left text-sm table-fixed">
             <colgroup>
-              <col style={{ width: 44 }} />
-              <col style={{ width: 150 }} />
-              <col style={{ width: 380 }} />
-              <col style={{ width: 120 }} />
-              <col style={{ width: 86 }} />
-              <col style={{ width: 60 }} />
-              <col style={{ width: 200 }} />
-              <col style={{ width: 120 }} />
-              <col style={{ width: 120 }} />
-              <col style={{ width: 520 }} />
+              <col style={{ width: "3%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "27%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "5%" }} />
+              <col style={{ width: "16%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "7%" }} />
+              <col style={{ width: "7%" }} />
             </colgroup>
             <thead>
               <tr className="border-b border-white/10 text-xs text-white/70">
