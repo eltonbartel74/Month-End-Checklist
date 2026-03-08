@@ -2164,46 +2164,75 @@ const GroupedRows = React.memo(function GroupedRows({
                   )
                 ) : (t.frequency ?? "").toLowerCase() === "monthly" ? (
                   <div className="space-y-1">
-                    <select
-                      className="w-full rounded border border-white/10 bg-white px-2 py-1 text-slate-900"
-                      value={String(t.monthlyDay ?? 7)}
-                      onChange={(e) => {
-                        const v = Number(e.target.value);
-                        // Immediate UI update (then server sync)
-                        setTasks((prev) =>
-                          prev.map((x) =>
-                            x.id === t.id
-                              ? { ...x, monthlyDay: Number.isFinite(v) ? v : x.monthlyDay, dueAt: null }
-                              : x
-                          )
-                        );
-                        void updateTask(t.id, {
-                          monthlyDay: Number.isFinite(v) ? v : null,
-                          dueAt: null,
-                        });
-                      }}
-                    >
-                      {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                        <option key={d} value={String(d)}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
-                    <div
-                      key={`monthlyDue_${t.id}_${period}_${String(t.monthlyDay ?? "")}`}
-                      className="text-[11px] text-white/50"
-                    >
-                      {(() => {
-                        const dom = t.monthlyDay ?? 7;
-                        const d = monthlyDueForPeriodSa(period, dom);
-                        return d ? `Due: ${formatAuDate(d.toISOString())}` : "";
-                      })()}
-                    </div>
+                    {(() => {
+                      const due = dueDateForKpi(t, period);
+                      const overdue = t.status !== "DONE" && !!due && due.getTime() < Date.now();
+                      return (
+                        <>
+                          <select
+                            className={
+                              "w-full rounded border px-2 py-1 " +
+                              (overdue
+                                ? "border-red-400/60 bg-red-500/15 text-white"
+                                : "border-white/10 bg-white text-slate-900")
+                            }
+                            value={String(t.monthlyDay ?? 7)}
+                            onChange={(e) => {
+                              const v = Number(e.target.value);
+                              // Immediate UI update (then server sync)
+                              setTasks((prev) =>
+                                prev.map((x) =>
+                                  x.id === t.id
+                                    ? {
+                                        ...x,
+                                        monthlyDay: Number.isFinite(v) ? v : x.monthlyDay,
+                                        dueAt: null,
+                                      }
+                                    : x
+                                )
+                              );
+                              void updateTask(t.id, {
+                                monthlyDay: Number.isFinite(v) ? v : null,
+                                dueAt: null,
+                              });
+                            }}
+                          >
+                            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                              <option key={d} value={String(d)}>
+                                {d}
+                              </option>
+                            ))}
+                          </select>
+                          <div
+                            key={`monthlyDue_${t.id}_${period}_${String(t.monthlyDay ?? "")}`}
+                            className={
+                              "text-[11px] " +
+                              (overdue ? "text-red-200/90" : "text-white/50")
+                            }
+                          >
+                            {(() => {
+                              const dom = t.monthlyDay ?? 7;
+                              const d = monthlyDueForPeriodSa(period, dom);
+                              return d ? `Due: ${formatAuDate(d.toISOString())}` : "";
+                            })()}
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 ) : (
                   <input
                     key={`due_${t.id}_${t.updatedAt}`}
-                    className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
+                    className={
+                      "w-full rounded border px-2 py-1 " +
+                      (() => {
+                        const due = dueDateForKpi(t, period);
+                        const overdue = t.status !== "DONE" && !!due && due.getTime() < Date.now();
+                        return overdue
+                          ? "border-red-400/60 bg-red-500/15 text-white placeholder:text-red-200/70"
+                          : "border-white/10 bg-black/10 text-white";
+                      })()
+                    }
                     defaultValue={formatAuDate(t.dueAt)}
                     placeholder="DD/MM/YYYY"
                     onBlur={(e) => {
