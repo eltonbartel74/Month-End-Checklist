@@ -1642,14 +1642,20 @@ const GroupedRows = React.memo(function GroupedRows({
     .slice()
     .sort((a, b) => a.title.localeCompare(b.title));
 
+  const toTimeSafe = (d: Date | null) => {
+    if (!d) return Number.MAX_SAFE_INTEGER;
+    const t = d.getTime();
+    return Number.isFinite(t) ? t : Number.MAX_SAFE_INTEGER;
+  };
+
   const monthly = tasks
     .filter((t) => fx(t) === "monthly")
     .slice()
     .sort((a, b) => {
-      const da = dueDateForKpi(a, period)?.getTime() ?? Number.MAX_SAFE_INTEGER;
-      const db = dueDateForKpi(b, period)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const da = toTimeSafe(dueDateForKpi(a, period));
+      const db = toTimeSafe(dueDateForKpi(b, period));
       if (da !== db) return da - db;
-      return a.title.localeCompare(b.title);
+      return (a.title ?? "").localeCompare(b.title ?? "");
     });
 
   const adhoc = tasks
@@ -1664,10 +1670,10 @@ const GroupedRows = React.memo(function GroupedRows({
     })
     .slice()
     .sort((a, b) => {
-      const da = dueDateForKpi(a, period)?.getTime() ?? Number.MAX_SAFE_INTEGER;
-      const db = dueDateForKpi(b, period)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const da = toTimeSafe(dueDateForKpi(a, period));
+      const db = toTimeSafe(dueDateForKpi(b, period));
       if (da !== db) return da - db;
-      return a.title.localeCompare(b.title);
+      return (a.title ?? "").localeCompare(b.title ?? "");
     });
 
   const groups: Array<{ label: string; rows: Task[] }> = [
