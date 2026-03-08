@@ -976,9 +976,9 @@ export default function Home() {
               <col style={{ width: 86 }} />
               <col style={{ width: 70 }} />
               <col style={{ width: 220 }} />
-              <col style={{ width: 160 }} />
               <col style={{ width: 120 }} />
-              <col style={{ width: 220 }} />
+              <col style={{ width: 96 }} />
+              <col style={{ width: 320 }} />
             </colgroup>
             <thead>
               <tr className="border-b border-white/10 text-xs text-white/70">
@@ -1016,13 +1016,13 @@ export default function Home() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="py-3 text-white/70" colSpan={10}>
+                  <td className="py-3 text-white/70" colSpan={11}>
                     Loading…
                   </td>
                 </tr>
               ) : visibleTasks.length === 0 ? (
                 <tr>
-                  <td className="py-3 text-white/70" colSpan={10}>
+                  <td className="py-3 text-white/70" colSpan={11}>
                     No tasks yet.
                   </td>
                 </tr>
@@ -1909,7 +1909,7 @@ const GroupedRows = React.memo(function GroupedRows({
       {groups.map((g) => (
         <React.Fragment key={g.label}>
           <tr>
-            <td className="pt-4 pb-2 text-xs font-semibold text-white/70" colSpan={10}>
+            <td className="pt-4 pb-2 text-xs font-semibold text-white/70" colSpan={11}>
               <div className="flex items-center justify-between gap-2">
                 <button
                   type="button"
