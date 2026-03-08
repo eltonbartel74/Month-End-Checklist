@@ -1956,7 +1956,34 @@ const GroupedRows = React.memo(function GroupedRows({
               <td className="py-2 pr-3">
                 <StatusChips
                   value={t.status}
-                  onChange={(v) => void updateTask(t.id, { status: v })}
+                  onChange={(v) => {
+                    // Prevent starting/completing tasks until all dependencies are DONE
+                    const next = String(v ?? "");
+                    if (next === "IN_PROGRESS" || next === "DONE") {
+                      const deps = parseDependencies(t.dependency);
+                      if (deps.length) {
+                        const byTitle = new Map(
+                          tasks.map((x) => [(x.title ?? "").trim(), x])
+                        );
+                        const incomplete = deps
+                          .map((d) => (byTitle.get((d ?? "").trim())?.status === "DONE" ? null : d))
+                          .filter(Boolean) as string[];
+
+                        if (incomplete.length) {
+                          if (typeof window !== "undefined") {
+                            window.alert(
+                              `Can’t start this task until dependency is complete: ${incomplete.join(
+                                ", "
+                              )}`
+                            );
+                          }
+                          return;
+                        }
+                      }
+                    }
+
+                    void updateTask(t.id, { status: v });
+                  }}
                 />
               </td>
               <td className="py-2 pr-3">
