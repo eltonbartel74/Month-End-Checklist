@@ -2219,24 +2219,55 @@ const GroupedRows = React.memo(function GroupedRows({
                 {(() => {
                   const deps = parseDependencies(t.dependency);
                   const myDue = dueDateForKpi(t, period);
+
+                  const byTitle = new Map(
+                    allTasks.map((x) => [(x.title ?? "").trim(), x])
+                  );
+
                   const depDues = deps
                     .map((d) => ({ title: d, due: dueByTitle.get(d) }))
                     .filter((x) => Boolean(x.due)) as Array<{ title: string; due: Date }>;
                   const latestDep = depDues.sort((a, b) => b.due.getTime() - a.due.getTime())[0];
-                  const warn =
-                    Boolean(latestDep && myDue && myDue.getTime() < latestDep.due.getTime());
+                  const warn = Boolean(
+                    latestDep && myDue && myDue.getTime() < latestDep.due.getTime()
+                  );
+
+                  const depStatuses = deps.map((d) => {
+                    const task = byTitle.get((d ?? "").trim());
+                    return { title: d, status: task?.status ?? null };
+                  });
+                  const allDone =
+                    deps.length > 0 && depStatuses.every((x) => x.status === "DONE");
+
+                  const chipClassFor = (status: string | null) => {
+                    if (status === "DONE")
+                      return "border-emerald-300/50 bg-emerald-500/15 text-emerald-100";
+                    if (status === "IN_PROGRESS")
+                      return "border-amber-300/50 bg-amber-500/15 text-amber-100";
+                    if (status === "WAITING")
+                      return "border-sky-300/40 bg-sky-500/10 text-sky-100";
+                    return "border-white/15 bg-black/10 text-white/80";
+                  };
+
+                  const statusLabel = (status: string | null) => {
+                    if (!status) return "Not found";
+                    return status.toLowerCase().replaceAll("_", " ");
+                  };
 
                   return (
                     <div className="space-y-1">
                       <div className="flex flex-wrap gap-1">
-                        {deps.map((d) => (
+                        {depStatuses.map((d) => (
                           <button
-                            key={d}
+                            key={d.title}
                             type="button"
-                            className="rounded-full border border-white/15 bg-black/10 px-2 py-1 text-xs text-white/80 hover:bg-white/5"
-                            title="Remove dependency"
+                            className={
+                              "rounded-full border px-2 py-1 text-xs hover:bg-white/5 " +
+                              chipClassFor(d.status)
+                            }
+                            title={`Dependency status: ${statusLabel(d.status)} (click to remove)`}
                             onClick={() => {
-                              const next = deps.filter((x) => x !== d);
+                              const next = deps.filter((x) => x !== d.title);
                               const depStr = stringifyDependencies(next);
                               setTasks((prev) =>
                                 prev.map((x) =>
@@ -2246,10 +2277,19 @@ const GroupedRows = React.memo(function GroupedRows({
                               void updateTask(t.id, { dependency: depStr });
                             }}
                           >
-                            {d} ×
+                            {d.status === "DONE" ? "✓ " : ""}
+                            {d.title} <span className="opacity-60">×</span>
                           </button>
                         ))}
                       </div>
+
+                      {allDone ? (
+                        <div className="text-[11px] text-emerald-200/90">Unblocked ✓</div>
+                      ) : deps.length ? (
+                        <div className="text-[11px] text-white/50">
+                          Blocked until all dependencies are DONE
+                        </div>
+                      ) : null}
 
                       <input
                         className="w-full rounded border border-white/10 bg-black/10 px-2 py-1 text-white/90"
