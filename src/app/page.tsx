@@ -970,15 +970,15 @@ export default function Home() {
           <table className="w-full border-collapse text-left text-sm table-fixed">
             <colgroup>
               <col style={{ width: 44 }} />
-              <col style={{ width: 140 }} />
-              <col style={{ width: 520 }} />
+              <col style={{ width: 150 }} />
+              <col style={{ width: 600 }} />
               <col style={{ width: 120 }} />
               <col style={{ width: 86 }} />
-              <col style={{ width: 70 }} />
-              <col style={{ width: 220 }} />
+              <col style={{ width: 60 }} />
+              <col style={{ width: 200 }} />
               <col style={{ width: 120 }} />
-              <col style={{ width: 96 }} />
-              <col style={{ width: 320 }} />
+              <col style={{ width: 120 }} />
+              <col style={{ width: 260 }} />
             </colgroup>
             <thead>
               <tr className="border-b border-white/10 text-xs text-white/70">
