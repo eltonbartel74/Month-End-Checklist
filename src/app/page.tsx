@@ -975,7 +975,7 @@ export default function Home() {
                 <th className="py-2 pr-3">WP</th>
                 <th className="py-2 pr-3">Hrs</th>
                 <th className="py-2 pr-3">Dependency</th>
-                <th className="py-2 pr-3">Due</th>
+                <th className="py-2 pr-3">Promised date</th>
                 <th className="py-2 pr-3">ETA</th>
                 <th className="py-2 pr-3">Comments</th>
               </tr>
