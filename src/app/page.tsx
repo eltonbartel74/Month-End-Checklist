@@ -971,14 +971,14 @@ export default function Home() {
             <colgroup>
               <col style={{ width: "3%" }} />
               <col style={{ width: "10%" }} />
-              <col style={{ width: "26%" }} />
+              <col style={{ width: "21%" }} />
               <col style={{ width: "10%" }} />
               <col style={{ width: "6%" }} />
               <col style={{ width: "5%" }} />
               <col style={{ width: "16%" }} />
               <col style={{ width: "9%" }} />
               <col style={{ width: "7%" }} />
-              <col style={{ width: "8%" }} />
+              <col style={{ width: "13%" }} />
             </colgroup>
             <thead>
               <tr className="border-b border-white/10 text-xs text-white/70">
