@@ -1957,8 +1957,29 @@ const GroupedRows = React.memo(function GroupedRows({
                 <StatusChips
                   value={t.status}
                   onChange={(v) => {
-                    // Prevent starting/completing tasks until all dependencies are DONE
                     const next = String(v ?? "");
+
+                    // Special-case gate: "Lock Posting Periods" cannot be marked DONE until all other monthly tasks are DONE
+                    if (next === "DONE") {
+                      const title = (t.title ?? "").toLowerCase();
+                      if (title.includes("lock") && title.includes("posting") && title.includes("period")) {
+                        const remaining = tasks.filter((x) => {
+                          if (x.id === t.id) return false;
+                          const f = (x.frequency ?? "").toLowerCase();
+                          return f === "monthly" && x.status !== "DONE";
+                        });
+                        if (remaining.length) {
+                          if (typeof window !== "undefined") {
+                            window.alert(
+                              `Can’t complete "${t.title}": ${remaining.length} monthly task(s) still not DONE.`
+                            );
+                          }
+                          return;
+                        }
+                      }
+                    }
+
+                    // Prevent starting/completing tasks until all dependencies are DONE
                     if (next === "IN_PROGRESS" || next === "DONE") {
                       const deps = parseDependencies(t.dependency);
                       if (deps.length) {
