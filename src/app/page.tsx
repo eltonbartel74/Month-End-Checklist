@@ -649,11 +649,11 @@ export default function Home() {
             {/* New task wizard modal */}
             {wizardOpen ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                <div className="w-full max-w-2xl rounded-md border border-white/10 bg-slate-900/90 p-4 shadow-xl backdrop-blur">
+                <div className="w-full max-w-2xl rounded-md border border-slate-200 bg-white/95 p-4 text-slate-900 shadow-xl backdrop-blur">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-sm font-semibold">New task</div>
-                      <div className="mt-1 text-xs text-white/60">
+                      <div className="mt-1 text-xs text-slate-500">
                         Step {wizardStep} of 3
                       </div>
                     </div>
@@ -669,9 +669,9 @@ export default function Home() {
                   {wizardStep === 1 ? (
                     <div className="mt-4 space-y-3">
                       <div>
-                        <div className="text-xs text-white/60">Task title</div>
+                        <div className="text-xs text-slate-600">Task title</div>
                         <input
-                          className="mt-1 h-10 w-full rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                          className="mt-1 h-10 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400"
                           value={wTitle}
                           onChange={(e) => setWTitle(e.target.value)}
                           placeholder="e.g. Accrued expenses"
@@ -680,9 +680,9 @@ export default function Home() {
                       </div>
 
                       <div>
-                        <div className="text-xs text-white/60">Type</div>
+                        <div className="text-xs text-slate-600">Type</div>
                         <select
-                          className="mt-1 h-10 w-full rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                          className="mt-1 h-10 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none"
                           value={wType}
                           onChange={(e) => setWType(e.target.value as NewTaskType)}
                         >
@@ -691,7 +691,7 @@ export default function Home() {
                           <option value="daily">Daily</option>
                           <option value="adhoc">Adhoc</option>
                         </select>
-                        <div className="mt-1 text-[11px] text-white/50">
+                        <div className="mt-1 text-[11px] text-slate-500">
                           Default is Monthly.
                         </div>
                       </div>
@@ -701,9 +701,9 @@ export default function Home() {
                   {wizardStep === 2 ? (
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       <div>
-                        <div className="text-xs text-white/60">Owner (optional)</div>
+                        <div className="text-xs text-slate-600">Owner (optional)</div>
                         <input
-                          className="mt-1 h-10 w-full rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                          className="mt-1 h-10 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400"
                           value={wOwner}
                           list="owner-datalist"
                           onChange={(e) => setWOwner(e.target.value)}
@@ -712,9 +712,9 @@ export default function Home() {
                         />
                       </div>
                       <div>
-                        <div className="text-xs text-white/60">Budget hours (Hrs)</div>
+                        <div className="text-xs text-slate-600">Budget hours (Hrs)</div>
                         <input
-                          className="mt-1 h-10 w-full rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                          className="mt-1 h-10 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400"
                           value={wHrs}
                           onChange={(e) => setWHrs(e.target.value)}
                           placeholder="e.g. 1, 0.5, 2"
@@ -727,9 +727,9 @@ export default function Home() {
                     <div className="mt-4 space-y-3">
                       {wType === "monthly" ? (
                         <div>
-                          <div className="text-xs text-white/60">Due day of month</div>
+                          <div className="text-xs text-slate-600">Due day of month</div>
                           <select
-                            className="mt-1 h-10 w-full rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                            className="mt-1 h-10 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none"
                             value={String(wMonthlyDay)}
                             onChange={(e) => setWMonthlyDay(Number(e.target.value))}
                             autoFocus
@@ -740,15 +740,15 @@ export default function Home() {
                               </option>
                             ))}
                           </select>
-                          <div className="mt-1 text-[11px] text-white/50">
+                          <div className="mt-1 text-[11px] text-slate-500">
                             Monthly tasks repeat — this is the day of the month (e.g. 7 = the 7th).
                           </div>
                         </div>
                       ) : wType === "adhoc" ? (
                         <div>
-                          <div className="text-xs text-white/60">Due date (DD/MM/YYYY)</div>
+                          <div className="text-xs text-slate-600">Due date (DD/MM/YYYY)</div>
                           <input
-                            className="mt-1 h-10 w-full rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                            className="mt-1 h-10 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400"
                             value={wDueDate}
                             onChange={(e) => setWDueDate(e.target.value)}
                             placeholder="DD/MM/YYYY"
@@ -760,9 +760,9 @@ export default function Home() {
                       {wType === "weekly" ? (
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div>
-                            <div className="text-xs text-white/60">Day</div>
+                            <div className="text-xs text-slate-600">Day</div>
                             <select
-                              className="mt-1 h-10 w-full rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                              className="mt-1 h-10 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none"
                               value={String(wWeeklyDay)}
                               onChange={(e) => setWWeeklyDay(Number(e.target.value))}
                               autoFocus
@@ -775,10 +775,10 @@ export default function Home() {
                             </select>
                           </div>
                           <div>
-                            <div className="text-xs text-white/60">Time (optional)</div>
+                            <div className="text-xs text-slate-600">Time (optional)</div>
                             <input
                               type="time"
-                              className="mt-1 h-10 w-full rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                              className="mt-1 h-10 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none"
                               value={wTime}
                               onChange={(e) => setWTime(e.target.value)}
                             />
@@ -788,10 +788,10 @@ export default function Home() {
 
                       {wType === "daily" ? (
                         <div>
-                          <div className="text-xs text-white/60">Time (optional) — runs Mon–Fri</div>
+                          <div className="text-xs text-slate-600">Time (optional) — runs Mon–Fri</div>
                           <input
                             type="time"
-                            className="mt-1 h-10 w-full rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                            className="mt-1 h-10 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none"
                             value={wTime}
                             onChange={(e) => setWTime(e.target.value)}
                             autoFocus
