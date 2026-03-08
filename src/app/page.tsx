@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { isBusinessDay, isSaPublicHoliday } from "@/lib/schedule";
-import { uploadWorkingPaper } from "@/app/uploadWorkingPaper";
+// (removed) SharePoint integration pending; no in-app working paper uploads for now
 
 type TaskStatus = "NOT_STARTED" | "IN_PROGRESS" | "WAITING" | "BLOCKED" | "DONE";
 
@@ -227,12 +227,15 @@ export default function Home() {
     const progressPct =
       budgetedHours && budgetedHours > 0 ? completedHours! / budgetedHours : null;
 
+    const rework = tasks.filter((t) => t.approvalStatus === "CHANGES_REQUESTED").length;
+
     return {
       total,
       overdue,
       dueNext7,
       inProgress,
       done,
+      rework,
       onTimePct,
 
       budgetedHours,
@@ -563,6 +566,7 @@ export default function Home() {
           <Kpi label="Due next 7 days" value={String(kpis.dueNext7)} />
           <Kpi label="In progress" value={String(kpis.inProgress)} />
           <Kpi label="Done" value={String(kpis.done)} />
+          <Kpi label="Rework" value={String(kpis.rework)} />
           <Kpi
             label="On-time %"
             value={
@@ -1005,7 +1009,7 @@ export default function Home() {
                 <th className="py-2 pr-3">Owner</th>
                 <th className="py-2 pr-3">Task</th>
                 <th className="py-2 pr-3">Status</th>
-                <th className="py-2 pr-3">WP</th>
+                <th className="py-2 pr-3">Review</th>
                 <th className="py-2 pr-3">Hrs</th>
                 <th className="py-2 pr-3">Dependency</th>
                 <th className="py-2 pr-3">Promised date</th>
@@ -1036,15 +1040,6 @@ export default function Home() {
                   updateTask={updateTaskOptimistic}
                   deleteTask={deleteTask}
                   setTasks={setTasks}
-                  onUpload={async (taskId, file) => {
-                    try {
-                      setActionError(null);
-                      await uploadWorkingPaper(taskId, file);
-                      await refresh();
-                    } catch (err) {
-                      setActionError(err instanceof Error ? err.message : "Upload failed");
-                    }
-                  }}
                 />
               )}
             </tbody>
@@ -1598,7 +1593,6 @@ const GroupedRows = React.memo(function GroupedRows({
   updateTask,
   deleteTask,
   setTasks,
-  onUpload,
 }: {
   tasks: Task[];
   allTasks: Task[];
@@ -1608,17 +1602,18 @@ const GroupedRows = React.memo(function GroupedRows({
   updateTask: (id: string, patch: Partial<Task>) => Promise<boolean>;
   deleteTask: (id: string, title: string) => Promise<void>;
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
-  onUpload: (taskId: string, file: File) => Promise<void>;
 }) {
   const [savingOwnerIds, setSavingOwnerIds] = useState<Set<string>>(() => new Set());
   const [savedOwnerIds, setSavedOwnerIds] = useState<Set<string>>(() => new Set());
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
 
+  // Working papers are assumed to be saved in SharePoint (integration TBD).
+  // We keep the approval/rework fields; attachment upload/view is disabled for now.
   const [wpTask, setWpTask] = useState<Task | null>(null);
   const [wpLoading, setWpLoading] = useState(false);
   const [wpError, setWpError] = useState<string | null>(null);
   const [wpAttachments, setWpAttachments] = useState<Attachment[]>([]);
-  const [reviewerName, setReviewerName] = useState("Elt");
+  const [reviewerName, setReviewerName] = useState("Manager");
   const [reviewNotes, setReviewNotes] = useState("");
 
   const fx = (t: Task) => (t.frequency ?? "").toLowerCase();
@@ -1724,29 +1719,7 @@ const GroupedRows = React.memo(function GroupedRows({
     });
   };
 
-  async function openWp(task: Task) {
-    setWpTask(task);
-    setWpError(null);
-    setWpLoading(true);
-    setWpAttachments([]);
-    setReviewNotes(task.reviewNotes ?? "");
-    setReviewerName(task.reviewedBy ?? "Elt");
-
-    try {
-      const res = await fetch(`/api/tasks/${task.id}/attachments`, { cache: "no-store" });
-      const data = (await res.json().catch(() => null)) as
-        | { attachments?: Attachment[]; error?: string }
-        | null;
-      if (!res.ok) {
-        throw new Error(data?.error || `Failed to load attachments (${res.status})`);
-      }
-      setWpAttachments(data?.attachments ?? []);
-    } catch (e) {
-      setWpError(e instanceof Error ? e.message : "Failed to load attachments.");
-    } finally {
-      setWpLoading(false);
-    }
-  }
+  // Working paper viewer removed for now (SharePoint integration TBD).
 
   const isMonthly = (t: Task) => (t.frequency ?? "").toLowerCase() === "monthly";
 
@@ -2150,46 +2123,56 @@ const GroupedRows = React.memo(function GroupedRows({
                 />
               </td>
               <td className="py-2 pr-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="min-w-[18px] text-white/70">
-                    {t._count?.attachments ? String(t._count.attachments) : "0"}
-                  </span>
-                  <label className="jam-btn jam-btn-primary h-8 px-3 text-xs">
-                    Upload
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept="application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,image/jpeg,image/png"
-                      onChange={async (e) => {
-                        const f = e.target.files?.[0];
-                        if (!f) return;
-                        try {
-                          await onUpload(t.id, f);
-                        } finally {
-                          e.target.value = "";
-                        }
+                <div className="space-y-1">
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="jam-btn h-8 px-3 text-xs border border-emerald-300/30 text-emerald-100 hover:bg-emerald-500/10"
+                      onClick={() =>
+                        void updateTask(t.id, {
+                          approvalStatus: "APPROVED",
+                          reviewedBy: "Manager",
+                          reviewedAt: new Date().toISOString(),
+                        })
+                      }
+                      title="Manager confirms working paper has been reviewed"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      className="jam-btn h-8 px-3 text-xs border border-amber-300/30 text-amber-100 hover:bg-amber-500/10"
+                      onClick={() => {
+                        const note =
+                          typeof window !== "undefined"
+                            ? window.prompt("What rework/corrections are required?", t.reviewNotes ?? "")
+                            : null;
+                        void updateTask(t.id, {
+                          approvalStatus: "CHANGES_REQUESTED",
+                          reviewedBy: "Manager",
+                          reviewedAt: new Date().toISOString(),
+                          reviewNotes: note === null ? (t.reviewNotes ?? null) : note || null,
+                        });
                       }}
-                    />
-                  </label>
+                      title="Record that rework/corrections are required"
+                    >
+                      Rework required
+                    </button>
 
-                  <button
-                    type="button"
-                    className="jam-btn h-8 px-3 text-xs"
-                    onClick={() => void openWp(t)}
-                    disabled={!t._count?.attachments}
-                    title={t._count?.attachments ? "View working papers" : "No working papers"}
-                  >
-                    View
-                  </button>
+                    <button
+                      type="button"
+                      className="jam-btn h-8 px-3 text-xs border border-red-400/25 text-red-200/80 hover:bg-red-400/10"
+                      onClick={() => void deleteTask(t.id, t.title)}
+                      title="Delete task"
+                    >
+                      Delete
+                    </button>
+                  </div>
 
-                  <button
-                    type="button"
-                    className="jam-btn h-8 px-3 text-xs border border-red-400/25 text-red-200/80 hover:bg-red-400/10"
-                    onClick={() => void deleteTask(t.id, t.title)}
-                    title="Delete task"
-                  >
-                    Delete
-                  </button>
+                  <div className="text-[11px] text-white/60">
+                    {(t.approvalStatus ?? "NOT_SUBMITTED").replaceAll("_", " ")}
+                    {t.reviewedAt ? ` • ${new Date(t.reviewedAt).toLocaleDateString()}` : ""}
+                  </div>
                 </div>
               </td>
               <td className="py-2 pr-3 min-w-0">
