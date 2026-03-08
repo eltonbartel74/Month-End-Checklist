@@ -970,13 +970,13 @@ export default function Home() {
           <table className="w-full border-collapse text-left text-sm table-fixed">
             <colgroup>
               <col style={{ width: 44 }} />
-              <col style={{ width: 420 }} />
               <col style={{ width: 140 }} />
+              <col style={{ width: 520 }} />
               <col style={{ width: 120 }} />
               <col style={{ width: 86 }} />
               <col style={{ width: 70 }} />
-              <col style={{ width: 260 }} />
-              <col style={{ width: 140 }} />
+              <col style={{ width: 220 }} />
+              <col style={{ width: 160 }} />
               <col style={{ width: 120 }} />
               <col style={{ width: 220 }} />
             </colgroup>
@@ -1002,8 +1002,8 @@ export default function Home() {
                     }}
                   />
                 </th>
-                <th className="py-2 pr-3">Task</th>
                 <th className="py-2 pr-3">Owner</th>
+                <th className="py-2 pr-3">Task</th>
                 <th className="py-2 pr-3">Status</th>
                 <th className="py-2 pr-3">WP</th>
                 <th className="py-2 pr-3">Hrs</th>
@@ -1940,22 +1940,6 @@ const GroupedRows = React.memo(function GroupedRows({
                   onChange={(e) => toggleOne(t.id, e.target.checked)}
                 />
               </td>
-              <td className="py-2 pr-3 relative">
-                <textarea
-                  rows={2}
-                  className="w-full min-w-0 rounded border border-white/10 bg-black/10 px-2 py-1 leading-snug text-white/90 resize-none whitespace-normal break-words focus:absolute focus:left-0 focus:top-0 focus:z-20 focus:w-[640px] focus:bg-black/60 focus:shadow-lg"
-                  value={t.title}
-                  title={t.title}
-                  onChange={(e) =>
-                    setTasks((prev) =>
-                      prev.map((x) =>
-                        x.id === t.id ? { ...x, title: e.target.value } : x
-                      )
-                    )
-                  }
-                  onBlur={(e) => void updateTask(t.id, { title: e.target.value })}
-                />
-              </td>
               <td className="py-2 pr-3">
                 <input
                   className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
@@ -2018,6 +2002,22 @@ const GroupedRows = React.memo(function GroupedRows({
                     <span className="text-white/0">.</span>
                   )}
                 </div>
+              </td>
+              <td className="py-2 pr-3 relative">
+                <textarea
+                  rows={2}
+                  className="w-full min-w-0 rounded border border-white/10 bg-black/10 px-2 py-1 leading-snug text-white/90 resize-none whitespace-normal break-words focus:absolute focus:left-0 focus:top-0 focus:z-20 focus:w-[640px] focus:bg-black/60 focus:shadow-lg"
+                  value={t.title}
+                  title={t.title}
+                  onChange={(e) =>
+                    setTasks((prev) =>
+                      prev.map((x) =>
+                        x.id === t.id ? { ...x, title: e.target.value } : x
+                      )
+                    )
+                  }
+                  onBlur={(e) => void updateTask(t.id, { title: e.target.value })}
+                />
               </td>
               <td className="py-2 pr-3">
                 <StatusChips
@@ -2198,9 +2198,9 @@ const GroupedRows = React.memo(function GroupedRows({
                   </button>
                 </div>
               </td>
-              <td className="py-2 pr-3">
+              <td className="py-2 pr-3 min-w-0">
                 <input
-                  className="w-[90px] rounded border border-white/10 bg-black/10 px-2 py-1 text-white/90"
+                  className="w-full min-w-0 rounded border border-white/10 bg-black/10 px-2 py-1 text-white/90"
                   value={t.estHoursPm ?? ""}
                   placeholder="–"
                   onChange={(e) =>
@@ -2215,7 +2215,7 @@ const GroupedRows = React.memo(function GroupedRows({
                   }
                 />
               </td>
-              <td className="py-2 pr-3">
+              <td className="py-2 pr-3 min-w-0">
                 {(() => {
                   const deps = parseDependencies(t.dependency);
                   const myDue = dueDateForKpi(t, period);
