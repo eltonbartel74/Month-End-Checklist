@@ -2167,12 +2167,21 @@ const GroupedRows = React.memo(function GroupedRows({
                     <select
                       className="w-full rounded border border-white/10 bg-white px-2 py-1 text-slate-900"
                       value={String(t.monthlyDay ?? 7)}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        // Immediate UI update (then server sync)
+                        setTasks((prev) =>
+                          prev.map((x) =>
+                            x.id === t.id
+                              ? { ...x, monthlyDay: Number.isFinite(v) ? v : x.monthlyDay, dueAt: null }
+                              : x
+                          )
+                        );
                         void updateTask(t.id, {
-                          monthlyDay: Number(e.target.value),
+                          monthlyDay: Number.isFinite(v) ? v : null,
                           dueAt: null,
-                        })
-                      }
+                        });
+                      }}
                     >
                       {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
                         <option key={d} value={String(d)}>
