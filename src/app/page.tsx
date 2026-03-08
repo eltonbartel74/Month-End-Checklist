@@ -2165,7 +2165,7 @@ const GroupedRows = React.memo(function GroupedRows({
                 ) : (t.frequency ?? "").toLowerCase() === "monthly" ? (
                   <div className="space-y-1">
                     <select
-                      className="w-full rounded border border-white/10 bg-black/10 px-2 py-1"
+                      className="w-full rounded border border-white/10 bg-white px-2 py-1 text-slate-900"
                       value={String(t.monthlyDay ?? 7)}
                       onChange={(e) =>
                         void updateTask(t.id, {
