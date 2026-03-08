@@ -1507,7 +1507,7 @@ type Attachment = {
   createdAt: string;
 };
 
-function GroupedRows({
+const GroupedRows = React.memo(function GroupedRows({
   tasks,
   allTasks,
   period,
@@ -2234,4 +2234,4 @@ function GroupedRows({
       ))}
     </>
   );
-}
+});
