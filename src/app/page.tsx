@@ -2189,9 +2189,13 @@ const GroupedRows = React.memo(function GroupedRows({
                         </option>
                       ))}
                     </select>
-                    <div className="text-[11px] text-white/50">
+                    <div
+                      key={`monthlyDue_${t.id}_${period}_${String(t.monthlyDay ?? "")}`}
+                      className="text-[11px] text-white/50"
+                    >
                       {(() => {
-                        const d = monthlyDueForPeriodSa(period, t.monthlyDay);
+                        const dom = t.monthlyDay ?? 7;
+                        const d = monthlyDueForPeriodSa(period, dom);
                         return d ? `Due: ${formatAuDate(d.toISOString())}` : "";
                       })()}
                     </div>
