@@ -2213,7 +2213,23 @@ const GroupedRows = React.memo(function GroupedRows({
                             {(() => {
                               const dom = t.monthlyDay ?? 7;
                               const d = monthlyDueForPeriodSa(period, dom);
-                              return d ? `Due: ${formatAuDate(d.toISOString())}` : "";
+                              if (!d) return "";
+
+                              const unadjusted = new Date(
+                                Date.UTC(
+                                  Number(period.slice(0, 4)),
+                                  Number(period.slice(5, 7)),
+                                  dom
+                                )
+                              );
+                              const adjusted = d;
+                              const wasAdjusted =
+                                unadjusted.toISOString().slice(0, 10) !==
+                                adjusted.toISOString().slice(0, 10);
+
+                              return wasAdjusted
+                                ? `${dom} (falls on weekend/holiday) → Promised date: ${formatAuDate(adjusted.toISOString())}`
+                                : `${dom} → Promised date: ${formatAuDate(adjusted.toISOString())}`;
                             })()}
                           </div>
                         </>
