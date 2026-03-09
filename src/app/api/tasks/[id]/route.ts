@@ -66,13 +66,10 @@ export async function PATCH(
         { status: 403 }
       );
     }
-  }
 
-  // If promised date is overdue and ETA is blank, require ETA on ANY update
-  // (unless the update sets the task to DONE).
-  {
-    const statusRequested = body.status ?? current.status;
-
+    // Balanced rule: if promised date is overdue and ETA is blank, require ETA when changing status
+    // (unless the change sets the task to DONE).
+    const statusRequested = body.status;
     const overdue = isOverduePromisedDate(current, new Date());
     const etaAfter =
       body.etaAt === undefined ? current.etaAt : body.etaAt ? new Date(body.etaAt) : null;
