@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { ownerMatchesUser, requireAuthedUser } from "@/lib/auth";
 import { diffTaskFields } from "@/lib/audit";
 import { Prisma } from "@prisma/client";
+import { isOverduePromisedDate } from "@/lib/dueDate";
 
 export async function PATCH(
   req: Request,
@@ -55,6 +56,28 @@ export async function PATCH(
   const current = await prisma.task.findUnique({ where: { id } });
   if (!current) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  // Only the task owner can change status
+  if (body.status && body.status !== current.status) {
+    if (!ownerMatchesUser(current.owner, user)) {
+      return NextResponse.json(
+        { error: "Only the task owner can change the status." },
+        { status: 403 }
+      );
+    }
+
+    // If promised date is overdue and ETA is blank, require ETA when changing status.
+    const overdue = isOverduePromisedDate(current, new Date());
+    const etaAfter =
+      body.etaAt === undefined ? current.etaAt : body.etaAt ? new Date(body.etaAt) : null;
+
+    if (overdue && body.status !== "DONE" && !etaAfter) {
+      return NextResponse.json(
+        { error: "ETA is required when the promised date is overdue." },
+        { status: 400 }
+      );
+    }
   }
 
   // Manager-only controls for monthly review actions
