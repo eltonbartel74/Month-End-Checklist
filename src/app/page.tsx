@@ -2269,11 +2269,42 @@ const GroupedRows = React.memo(function GroupedRows({
                     if (next === "IN_PROGRESS" || next === "DONE") {
                       const deps = parseDependencies(t.dependency);
                       if (deps.length) {
+                        const norm = (s: string) =>
+                          s
+                            .toLowerCase()
+                            .trim()
+                            .replace(/\s+/g, " ");
+
                         const byTitle = new Map(
-                          tasks.map((x) => [(x.title ?? "").trim(), x])
+                          tasks.map((x) => [norm(x.title ?? ""), x])
                         );
+
+                        const isBankRecsEom = (s: string) => {
+                          const t = norm(s);
+                          return t.includes("bank") && t.includes("recon") && t.includes("eom");
+                        };
+
+                        const findBankRecsEom = () =>
+                          tasks.find((x) => isBankRecsEom(x.title ?? "")) ?? null;
+
                         const incomplete = deps
-                          .map((d) => (byTitle.get((d ?? "").trim())?.status === "DONE" ? null : d))
+                          .map((dRaw) => {
+                            const d = (dRaw ?? "").trim();
+                            if (!d) return null;
+
+                            // Exact (normalised) match first
+                            const exact = byTitle.get(norm(d));
+                            if (exact) return exact.status === "DONE" ? null : d;
+
+                            // Fallback for the special milestone (titles have varied a bit)
+                            if (isBankRecsEom(d)) {
+                              const t = findBankRecsEom();
+                              if (t) return t.status === "DONE" ? null : d;
+                            }
+
+                            // If we can't find the dependency task at all, treat as incomplete (safer)
+                            return d;
+                          })
                           .filter(Boolean) as string[];
 
                         if (incomplete.length) {
