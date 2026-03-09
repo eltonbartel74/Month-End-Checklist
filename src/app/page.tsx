@@ -680,7 +680,6 @@ export default function Home() {
           <ProgressRing
             progressPct={kpis.progressPct}
             expectedProgressPct={kpis.expectedProgressPct}
-            onTrack={kpis.onTrack}
             projectedCloseDate={kpis.projectedCloseDate}
             targetCloseDate={kpis.targetCloseDate}
           />
@@ -1188,13 +1187,11 @@ function Kpi({ label, value }: { label: string; value: string }) {
 function ProgressRing({
   progressPct,
   expectedProgressPct,
-  onTrack,
   projectedCloseDate,
   targetCloseDate,
 }: {
   progressPct: number | null;
   expectedProgressPct: number | null;
-  onTrack: boolean | null;
   projectedCloseDate: Date | null;
   targetCloseDate: Date | null;
 }) {
@@ -1204,9 +1201,35 @@ function ProgressRing({
 
   const pctText = pct === null ? "–" : `${Math.round(pct * 100)}%`;
 
-  const statusText = onTrack === null ? "" : onTrack ? "On track" : "Off track";
+  const delta = pct === null || expected === null ? null : pct - expected;
 
-  const accent = onTrack === null ? "#94a3b8" : onTrack ? "#34d399" : "#fb7185"; // slate/green/red
+  const tier: "neutral" | "green" | "amber" | "red" =
+    delta === null
+      ? "neutral"
+      : delta >= -0.08
+        ? "green"
+        : delta >= -0.15
+          ? "amber"
+          : "red";
+
+  const statusText =
+    tier === "neutral"
+      ? ""
+      : tier === "green"
+        ? "On track"
+        : tier === "amber"
+          ? "Slightly behind"
+          : "At risk";
+
+  const accent =
+    tier === "neutral"
+      ? "#94a3b8" // slate
+      : tier === "green"
+        ? "#34d399" // green
+        : tier === "amber"
+          ? "#fbbf24" // amber
+          : "#fb7185"; // red
+
   const track = "rgba(255,255,255,0.12)";
   const expectedColour = "rgba(255,255,255,0.55)";
 
@@ -1240,7 +1263,17 @@ function ProgressRing({
       </div>
 
       <div className="text-xs text-white/70">
-        <div className={onTrack === null ? "text-white/70" : onTrack ? "text-emerald-200" : "text-rose-200"}>
+        <div
+          className={
+            tier === "neutral"
+              ? "text-white/70"
+              : tier === "green"
+                ? "text-emerald-200"
+                : tier === "amber"
+                  ? "text-amber-200"
+                  : "text-rose-200"
+          }
+        >
           {statusText || "Progress"}
         </div>
         <div className="text-white/60">
