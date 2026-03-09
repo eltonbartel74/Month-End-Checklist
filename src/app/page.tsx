@@ -1248,12 +1248,12 @@ function ProgressRing({
 
         {/* Inner actual ring */}
         <div className="absolute rounded-full p-[3px]" style={{ ...innerStyle, inset: ringInset }}>
-          <div className="flex h-full w-full items-center justify-center rounded-full bg-slate-950/60">
+          <div className="flex h-full w-full items-center justify-center rounded-full bg-[var(--jam-yellow)]">
             <div
               className={
                 "font-semibold " + (sizePx >= 96 ? "text-base" : "text-xs")
               }
-              style={{ color: accent }}
+              style={{ color: "var(--jam-navy)" }}
             >
               {pctText}
             </div>
