@@ -1306,6 +1306,54 @@ function formatSchedule(t: Task) {
   return "";
 }
 
+function monthlyGateInfo(t: Task): { label: string; title: string; tone: "neutral" | "warn" } | null {
+  const f = (t.frequency ?? "").toLowerCase();
+  if (f !== "monthly") return null;
+
+  const title = (t.title ?? "").toLowerCase().trim().replace(/\s+/g, " ");
+
+  const isLockPostingPeriods =
+    title.includes("lock") && title.includes("posting") && title.includes("period");
+
+  const isMonthlyGateReport =
+    title.includes("jamieson group monthly reporting model") ||
+    title.includes("monthly management board report pack finalised");
+
+  const isTaxEndTask =
+    title.includes("bas lodgement") ||
+    title.includes("bas reconciliation") ||
+    title.includes("diesel fuel credit") ||
+    title.includes("fbt accrual");
+
+  if (isLockPostingPeriods) {
+    return {
+      tone: "warn",
+      label: "Gated",
+      title: "Can’t be marked DONE until all other monthly tasks are DONE.",
+    };
+  }
+
+  if (isMonthlyGateReport) {
+    return {
+      tone: "warn",
+      label: "Gated",
+      title:
+        "Can’t be marked DONE until all other monthly tasks are DONE (excluding Lock Posting Periods + BAS/DFC/FBT).",
+    };
+  }
+
+  if (isTaxEndTask) {
+    return {
+      tone: "warn",
+      label: "Gated",
+      title:
+        "Can’t be marked DONE until all other monthly tasks are DONE (excluding Lock Posting Periods + BAS/DFC/FBT).",
+    };
+  }
+
+  return null;
+}
+
 function StatusChips({
   value,
   onChange,
@@ -2170,6 +2218,21 @@ const GroupedRows = React.memo(function GroupedRows({
                 />
               </td>
               <td className="py-2 pr-3">
+                {(() => {
+                  const g = monthlyGateInfo(t);
+                  if (!g) return null;
+                  const cls =
+                    g.tone === "warn"
+                      ? "border-amber-300/40 bg-amber-400/10 text-amber-100"
+                      : "border-white/15 bg-black/10 text-white/70";
+                  return (
+                    <div className="mb-1 inline-flex items-center gap-1 rounded-full border px-2 py-[2px] text-[11px]" title={g.title}>
+                      <span className={cls + " rounded-full px-1.5 py-0.5"}>{g.label}</span>
+                      <span className="text-white/60">Month-end completion gate</span>
+                    </div>
+                  );
+                })()}
+
                 <StatusChips
                   value={t.status}
                   onChange={(v) => {
