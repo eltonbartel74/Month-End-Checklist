@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   // Supabase/Vercel integration vars
   // Use Prisma-specific pooled URL (PgBouncer-friendly) to avoid intermittent serverless query errors.
   url       = env("POSTGRES_PRISMA_URL")
@@ -26,31 +26,32 @@ enum ApprovalStatus {
 }
 
 model Task {
-  id          String     @id @default(cuid())
-  period      String?    // e.g. "2026-02" (optional for now)
-  title       String
-  owner       String?
-  status      TaskStatus @default(NOT_STARTED)
+  id     String     @id @default(cuid())
+  period String? // e.g. "2026-02" (optional for now)
+  title  String
+  owner  String?
+  status TaskStatus @default(NOT_STARTED)
 
   // extra fields (imported from spreadsheet)
-  frequency   String?
-  estHoursPm  String?
-  dependency  String?
+  frequency  String?
+  estHoursPm String?
+  dependency String?
 
   // scheduling
   repeatEnabled Boolean   @default(false)
-  dailyTime     String?   // "HH:MM" (optional)
+  dailyTime     String? // "HH:MM" (optional)
   weeklyDays    Int[]     @default([]) // 1=Mon ... 7=Sun
-  monthlyDay    Int?      // 1..31
+  monthlyDay    Int? // 1..31
   nextDueAt     DateTime?
   lastDoneAt    DateTime?
 
-  dueAt       DateTime?
-  etaAt       DateTime?
-  blocker     String?
-  notes       String?
+  dueAt   DateTime?
+  etaAt   DateTime?
+  blocker String?
+  notes   String?
 
   attachments Attachment[]
+  auditEvents AuditEvent[]
 
   // Working paper approval (monthly tasks)
   approvalStatus ApprovalStatus @default(NOT_SUBMITTED)
@@ -58,14 +59,14 @@ model Task {
   reviewedAt     DateTime?
   reviewNotes    String?
 
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Attachment {
-  id          String   @id @default(cuid())
-  taskId      String
-  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   url         String
   path        String
@@ -73,7 +74,7 @@ model Attachment {
   contentType String?
   sizeBytes   Int?
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([taskId])
 }
@@ -84,15 +85,89 @@ enum UserRole {
 }
 
 model AllowedUser {
-  id         String   @id @default(cuid())
-  email      String   @unique
-  role       UserRole @default(STAFF)
-  active     Boolean  @default(true)
+  id     String   @id @default(cuid())
+  email  String   @unique
+  role   UserRole @default(STAFF)
+  active Boolean  @default(true)
 
   // Mapping: which task Owner values should be treated as "this user".
   // Example: ["Elt", "Elton", "Elton Bartel"]
   ownerNames String[] @default([])
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum AuditAction {
+  TASK_CREATE
+  TASK_UPDATE
+  TASK_STATUS_CHANGE
+  TASK_REVIEW_ACTION
+  MONTH_CLOSE
+  BULK_ADMIN
+}
+
+model AuditEvent {
+  id     String      @id @default(cuid())
+  action AuditAction
+
+  period String?
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  actorEmail String?
+  actorRole  UserRole?
+
+  // Lightweight searchable summary
+  summary String?
+
+  // JSON payloads (store diffs / before+after safely)
+  beforeJson Json?
+  afterJson  Json?
+  metaJson   Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([period])
+  @@index([taskId])
+  @@index([actorEmail])
+  @@index([createdAt])
+}
+
+model KpiSnapshot {
+  id         String   @id @default(cuid())
+  period     String
+  owner      String
+  snapshotAt DateTime @default(now())
+
+  // Core counts
+  total      Int
+  notStarted Int
+  inProgress Int
+  waiting    Int
+  blocked    Int
+
+  // Governance
+  rework Int
+
+  // Quality / timeliness
+  dueToDatePct Float?
+  onTimePct    Float?
+
+  // Effort tracking
+  budgetedHours  Float?
+  completedHours Float?
+  progressPct    Float?
+  missingHours   Int
+
+  // Lateness (performance: if late, how late)
+  lateOpenCount Int
+  lateDoneCount Int
+  lateAvgDays   Float?
+  lateMaxDays   Int?
+
+  metaJson Json?
+
+  @@index([period, owner])
+  @@index([snapshotAt])
 }

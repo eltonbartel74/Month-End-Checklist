@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db";
 import { nextDaily, nextWeekly } from "@/lib/schedule";
 import { NextResponse } from "next/server";
 import { ownerMatchesUser, requireAuthedUser } from "@/lib/auth";
+import { diffTaskFields } from "@/lib/audit";
+import { Prisma } from "@prisma/client";
 
 export async function PATCH(
   req: Request,
@@ -197,6 +199,65 @@ export async function PATCH(
         reviewNotes: body.reviewNotes === null ? null : body.reviewNotes?.trim(),
       },
     });
+
+    // Audit log (diff-based)
+    const fields = [
+      "title",
+      "owner",
+      "status",
+      "frequency",
+      "estHoursPm",
+      "dependency",
+      "repeatEnabled",
+      "dailyTime",
+      "weeklyDays",
+      "monthlyDay",
+      "nextDueAt",
+      "dueAt",
+      "etaAt",
+      "blocker",
+      "notes",
+      "approvalStatus",
+      "reviewedBy",
+      "reviewedAt",
+      "reviewNotes",
+      "lastDoneAt",
+    ];
+
+    const { before, after } = diffTaskFields(
+      current as unknown as Record<string, unknown>,
+      updated as unknown as Record<string, unknown>,
+      fields
+    );
+    const hasChanges = Object.keys(after).length > 0;
+
+    if (hasChanges) {
+      const statusChanged = (before as Record<string, unknown>).status !== undefined;
+      const reviewChanged =
+        (before as Record<string, unknown>).approvalStatus !== undefined ||
+        (before as Record<string, unknown>).reviewNotes !== undefined ||
+        (before as Record<string, unknown>).reviewedAt !== undefined ||
+        (before as Record<string, unknown>).reviewedBy !== undefined;
+
+      const action = reviewChanged
+        ? "TASK_REVIEW_ACTION"
+        : statusChanged
+          ? "TASK_STATUS_CHANGE"
+          : "TASK_UPDATE";
+
+      await tx.auditEvent.create({
+        data: {
+          action,
+          period: updated.period ?? null,
+          taskId: updated.id,
+          actorEmail: user.email ?? null,
+          actorRole: user.role ?? null,
+          summary: `${action}: ${updated.title}`,
+          beforeJson: before as unknown as Prisma.InputJsonValue,
+          afterJson: after as unknown as Prisma.InputJsonValue,
+        },
+      });
+    }
 
     // If a task title changes, update dependency references that use titles.
     if (typeof newTitle === "string" && newTitle && oldTitle && newTitle !== oldTitle) {

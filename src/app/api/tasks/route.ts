@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAuthedUser } from "@/lib/auth";
+import { auditEvent } from "@/lib/audit";
 
 export async function GET() {
   const errorId = `tasks_get_${Date.now()}`;
@@ -51,8 +52,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  let user;
   try {
-    await requireAuthedUser();
+    user = await requireAuthedUser();
   } catch (e) {
     const msg = e instanceof Error ? e.message : "UNAUTHENTICATED";
     const status = msg === "NOT_ALLOWED" ? 403 : 401;
@@ -108,6 +110,21 @@ export async function POST(req: Request) {
       etaAt: body.etaAt ? new Date(body.etaAt) : null,
       blocker: body.blocker?.trim() || null,
       notes: body.notes?.trim() || null,
+    },
+  });
+
+  await auditEvent({
+    action: "TASK_CREATE",
+    actor: { email: user.email ?? null, role: user.role ?? null },
+    period: task.period ?? null,
+    taskId: task.id,
+    summary: `TASK_CREATE: ${task.title}`,
+    after: {
+      id: task.id,
+      title: task.title,
+      owner: task.owner,
+      status: task.status,
+      frequency: task.frequency,
     },
   });
 
