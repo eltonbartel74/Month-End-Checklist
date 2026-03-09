@@ -2021,9 +2021,9 @@ const GroupedRows = React.memo(function GroupedRows({
   // Working papers are assumed to be saved in SharePoint (integration TBD).
   // We keep the approval/rework fields; attachment upload/view is disabled for now.
   const [wpTask, setWpTask] = useState<Task | null>(null);
-  const [wpLoading, setWpLoading] = useState(false);
-  const [wpError, setWpError] = useState<string | null>(null);
-  const [wpAttachments, setWpAttachments] = useState<Attachment[]>([]);
+  const [wpLoading] = useState(false);
+  const [wpError] = useState<string | null>(null);
+  const [wpAttachments] = useState<Attachment[]>([]);
   const [reviewerName, setReviewerName] = useState("Manager");
   const [reviewNotes, setReviewNotes] = useState("");
 
