@@ -325,6 +325,7 @@ export default function Home() {
     const projectedCloseDate =
       progressPct === null ||
       progressPct <= 0 ||
+      expectedProgressPct === null ||
       elapsedBusinessDays === null ||
       elapsedBusinessDays <= 0 ||
       // Hide projection until we have enough signal.
@@ -332,10 +333,69 @@ export default function Home() {
       (progressPct < 0.05 && done < 5)
         ? null
         : (() => {
-            const ratePerBusinessDay = progressPct / elapsedBusinessDays;
-            if (!Number.isFinite(ratePerBusinessDay) || ratePerBusinessDay <= 0) return null;
-            const remaining = Math.ceil((1 - progressPct) / ratePerBusinessDay);
-            return addBusinessDaysUtc(todayUtc, remaining);
+            // Planned-curve projection:
+            // - plannedPctToday = expectedProgressPct (outer ring)
+            // - delta = actual - planned
+            // - if we're ahead/at plan: find the plan date where planned reaches (1 - delta)
+            // - if we're behind: extend beyond the plan finish date by the shortfall using the planned pace so far
+
+            const plannedPctToday = expectedProgressPct;
+            const delta = progressPct - plannedPctToday;
+
+            // Build a lightweight planned curve from tasks' promised dates (hours-weighted)
+            const dueHours: Array<{ ts: number; hours: number }> = [];
+            let plannedFinishTs: number | null = null;
+
+            for (const t of tasks) {
+              const due = dueDateForKpi(t, period);
+              if (!due) continue;
+              const bh = budgetHoursForTask(t);
+              if (bh === null) continue;
+
+              const ts = due.getTime();
+              dueHours.push({ ts, hours: bh });
+              plannedFinishTs = plannedFinishTs === null ? ts : Math.max(plannedFinishTs, ts);
+            }
+
+            if (!budgetedHours || budgetedHours <= 0 || plannedFinishTs === null) return null;
+
+            dueHours.sort((a, b) => a.ts - b.ts);
+
+            const plannedPctAt = (ts: number) => {
+              let sum = 0;
+              for (const d of dueHours) {
+                if (d.ts <= ts) sum += d.hours;
+                else break;
+              }
+              return Math.min(1, Math.max(0, sum / budgetedHours));
+            };
+
+            // If at/above plan, project to the plan date where we hit the remaining requirement.
+            if (delta >= 0) {
+              const threshold = Math.min(1, Math.max(0, 1 - delta));
+
+              // Walk forward day-by-day from today until we hit the threshold, but never past plan finish.
+              let d = new Date(Date.UTC(todayUtc.getUTCFullYear(), todayUtc.getUTCMonth(), todayUtc.getUTCDate()));
+              const end = new Date(plannedFinishTs);
+
+              for (let i = 0; i < 120; i++) {
+                if (plannedPctAt(d.getTime()) >= threshold) return d;
+                if (d.getTime() >= end.getTime()) return end;
+                d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1));
+              }
+
+              return end;
+            }
+
+            // If behind plan, extend beyond plan finish using planned pace-to-date.
+            const plannedRatePerBusinessDay = plannedPctToday / elapsedBusinessDays;
+            if (!Number.isFinite(plannedRatePerBusinessDay) || plannedRatePerBusinessDay <= 0) {
+              return new Date(plannedFinishTs);
+            }
+
+            const shortfall = -delta; // how far behind plan we are (0..1)
+            const extraDays = Math.ceil(shortfall / plannedRatePerBusinessDay);
+            return addBusinessDaysUtc(new Date(plannedFinishTs), extraDays);
           })();
 
     // targetCloseDate is computed above (15th rolled forward)
