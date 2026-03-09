@@ -644,7 +644,7 @@ export default function Home() {
             targetCloseDate={kpis.targetCloseDate}
           />
 
-          <div className="flex items-start gap-2 flex-none">
+          <div className="flex items-end gap-2 flex-none">
             <div>
               <div className="text-xs text-white/60">Period (YYYY-MM)</div>
               <input
