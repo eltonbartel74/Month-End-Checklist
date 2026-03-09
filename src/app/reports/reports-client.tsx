@@ -255,6 +255,7 @@ export default function ReportsClient() {
                   <th className="py-2 pr-3">Progress%</th>
                   <th className="py-2 pr-3">Due-to-date%</th>
                   <th className="py-2 pr-3">On-time%</th>
+                  <th className="py-2 pr-3">Reworks</th>
                   <th className="py-2 pr-3">Late (open/done)</th>
                   <th className="py-2 pr-3">Late avg/max days</th>
                 </tr>
@@ -268,6 +269,7 @@ export default function ReportsClient() {
                     <td className="py-2 pr-3">{s.progressPct === null ? "-" : `${Math.round(s.progressPct * 100)}%`}</td>
                     <td className="py-2 pr-3">{s.dueToDatePct === null ? "-" : `${Math.round(s.dueToDatePct * 100)}%`}</td>
                     <td className="py-2 pr-3">{s.onTimePct === null ? "-" : `${Math.round(s.onTimePct * 100)}%`}</td>
+                    <td className="py-2 pr-3">{s.rework}</td>
                     <td className="py-2 pr-3">{s.lateOpenCount}/{s.lateDoneCount}</td>
                     <td className="py-2 pr-3">{s.lateAvgDays === null ? "-" : s.lateAvgDays.toFixed(1)}/{s.lateMaxDays ?? "-"}</td>
                   </tr>
