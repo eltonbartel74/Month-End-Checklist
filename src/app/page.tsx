@@ -256,8 +256,7 @@ export default function Home() {
     ).length;
 
     // Month-end tracking: show whether we are tracking to a target close date.
-    // Default target: close completed by the 5th SA business day of the month after the period.
-    const targetCloseBusinessDays = 5;
+    // Target: close completed by the 15th of the month after the period, rolled forward to next SA business day.
 
     const [yy, mm] = period.split("-").map((x) => Number(x));
     const closeWindowStart =
@@ -265,15 +264,33 @@ export default function Home() {
         ? new Date(Date.UTC(yy, mm, 1)) // period is YYYY-MM, so this is next month
         : null;
 
+    const targetCloseDate =
+      closeWindowStart === null
+        ? null
+        : (() => {
+            // 15th of close month (month after the period), rolled forward
+            let d = new Date(Date.UTC(closeWindowStart.getUTCFullYear(), closeWindowStart.getUTCMonth(), 15));
+            while (!isBusinessDay(d)) d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1));
+            return d;
+          })();
+
     const todayUtc = new Date(now);
+
+    // Elapsed business days since start of close window (1st of close month)
     const elapsedBusinessDays = closeWindowStart
       ? Math.max(0, businessDaysBetweenUtc(closeWindowStart, todayUtc))
       : null;
 
+    // Total business days available (start -> target)
+    const totalBusinessDaysToTarget =
+      closeWindowStart && targetCloseDate
+        ? Math.max(1, businessDaysBetweenUtc(closeWindowStart, targetCloseDate))
+        : null;
+
     const expectedProgressPct =
-      elapsedBusinessDays === null
+      elapsedBusinessDays === null || totalBusinessDaysToTarget === null
         ? null
-        : Math.min(1, elapsedBusinessDays / targetCloseBusinessDays);
+        : Math.min(1, elapsedBusinessDays / totalBusinessDaysToTarget);
 
     const onTrack =
       progressPct === null || expectedProgressPct === null
@@ -290,9 +307,7 @@ export default function Home() {
             return addBusinessDaysUtc(todayUtc, remaining);
           })();
 
-    const targetCloseDate = closeWindowStart
-      ? addBusinessDaysUtc(closeWindowStart, targetCloseBusinessDays)
-      : null;
+    // targetCloseDate is computed above (15th rolled forward)
 
     return {
       total,
