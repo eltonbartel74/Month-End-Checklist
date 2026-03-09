@@ -17,7 +17,7 @@ export default function LoginPage() {
   }, [step]);
 
   return (
-    <div className="max-w-md px-6 py-10">
+    <div className="mx-auto max-w-md px-6 py-10">
       <h1 className="text-2xl font-semibold">Sign in</h1>
       <p className="mt-2 text-sm text-white/70">
         Enter your Jamieson email. We’ll send a one-time code.
