@@ -1,6 +1,6 @@
 import { requireAuthedUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import Link from "next/link";
+// (no Link needed here)
 import ReportsClient from "./reports-client";
 
 export default async function ReportsPage() {
@@ -10,16 +10,11 @@ export default async function ReportsPage() {
 
   return (
     <div className="jam-container space-y-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
-          <p className="mt-1 text-white/70 text-sm">
-            Manager-only audit log and KPI snapshots (exportable).
-          </p>
-        </div>
-        <Link className="jam-btn h-9" href="/">
-          Home
-        </Link>
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
+        <p className="mt-1 text-white/70 text-sm">
+          Manager-only audit log and KPI snapshots (exportable).
+        </p>
       </div>
 
       <ReportsClient />
