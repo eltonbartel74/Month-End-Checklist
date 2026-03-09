@@ -85,3 +85,36 @@ export function nextMonthly(from: Date, dayOfMonth: number, dailyTime?: string |
   // next month
   return makeCandidate(y, m + 1);
 }
+
+export function addBusinessDaysUtc(fromUtc: Date, businessDays: number) {
+  const dir = businessDays >= 0 ? 1 : -1;
+  let remaining = Math.abs(businessDays);
+  let d = startOfDay(fromUtc);
+
+  while (remaining > 0) {
+    d = addDaysUtc(d, dir);
+    if (isBusinessDay(d)) remaining--;
+  }
+  return d;
+}
+
+/**
+ * Count business days between two UTC dates (start exclusive, end inclusive).
+ * If end < start, returns negative.
+ */
+export function businessDaysBetweenUtc(startUtc: Date, endUtc: Date) {
+  const start = startOfDay(startUtc);
+  const end = startOfDay(endUtc);
+  if (end.getTime() === start.getTime()) return 0;
+
+  const dir = end.getTime() > start.getTime() ? 1 : -1;
+  let d = start;
+  let count = 0;
+
+  while (d.getTime() !== end.getTime()) {
+    d = addDaysUtc(d, dir);
+    if (isBusinessDay(d)) count += dir;
+  }
+
+  return count;
+}

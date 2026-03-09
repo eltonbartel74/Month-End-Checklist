@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { isBusinessDay, isSaPublicHoliday } from "@/lib/schedule";
+import { addBusinessDaysUtc, businessDaysBetweenUtc, isBusinessDay, isSaPublicHoliday } from "@/lib/schedule";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { startIdleLogout } from "@/lib/idleLogout";
 // (removed) SharePoint integration pending; no in-app working paper uploads for now
@@ -255,6 +255,45 @@ export default function Home() {
         t.approvalStatus === "CHANGES_REQUESTED"
     ).length;
 
+    // Month-end tracking: show whether we are tracking to a target close date.
+    // Default target: close completed by the 5th SA business day of the month after the period.
+    const targetCloseBusinessDays = 5;
+
+    const [yy, mm] = period.split("-").map((x) => Number(x));
+    const closeWindowStart =
+      Number.isFinite(yy) && Number.isFinite(mm)
+        ? new Date(Date.UTC(yy, mm, 1)) // period is YYYY-MM, so this is next month
+        : null;
+
+    const todayUtc = new Date(now);
+    const elapsedBusinessDays = closeWindowStart
+      ? Math.max(0, businessDaysBetweenUtc(closeWindowStart, todayUtc))
+      : null;
+
+    const expectedProgressPct =
+      elapsedBusinessDays === null
+        ? null
+        : Math.min(1, elapsedBusinessDays / targetCloseBusinessDays);
+
+    const onTrack =
+      progressPct === null || expectedProgressPct === null
+        ? null
+        : progressPct + 0.08 >= expectedProgressPct; // 8% tolerance
+
+    const projectedCloseDate =
+      progressPct === null || progressPct <= 0 || elapsedBusinessDays === null || elapsedBusinessDays <= 0
+        ? null
+        : (() => {
+            const ratePerBusinessDay = progressPct / elapsedBusinessDays;
+            if (!Number.isFinite(ratePerBusinessDay) || ratePerBusinessDay <= 0) return null;
+            const remaining = Math.ceil((1 - progressPct) / ratePerBusinessDay);
+            return addBusinessDaysUtc(todayUtc, remaining);
+          })();
+
+    const targetCloseDate = closeWindowStart
+      ? addBusinessDaysUtc(closeWindowStart, targetCloseBusinessDays)
+      : null;
+
     return {
       total,
       overdue,
@@ -268,6 +307,11 @@ export default function Home() {
       completedHours,
       progressPct,
       missingHours,
+
+      onTrack,
+      expectedProgressPct,
+      projectedCloseDate,
+      targetCloseDate,
     };
   }, [tasks, now, period]);
 
@@ -598,7 +642,22 @@ export default function Home() {
       </div>
 
       <div className="rounded-md border border-white/10 bg-white/5 p-4">
-        <div className="text-sm text-white/80">KPIs (live)</div>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="text-sm text-white/80">KPIs (live)</div>
+            <div className="mt-1 text-xs text-white/60">
+              Progress is based on budgeted hours vs completed hours.
+            </div>
+          </div>
+
+          <ProgressRing
+            progressPct={kpis.progressPct}
+            onTrack={kpis.onTrack}
+            projectedCloseDate={kpis.projectedCloseDate}
+            targetCloseDate={kpis.targetCloseDate}
+          />
+        </div>
+
         <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-9">
           <Kpi label="Total" value={String(kpis.total)} />
           <Kpi label="Overdue" value={String(kpis.overdue)} />
@@ -1094,6 +1153,64 @@ function Kpi({ label, value }: { label: string; value: string }) {
     <div className="rounded border border-white/10 bg-black/10 p-3">
       <div className="text-xs text-white/70">{label}</div>
       <div className="mt-1 text-lg font-semibold">{value}</div>
+    </div>
+  );
+}
+
+function ProgressRing({
+  progressPct,
+  onTrack,
+  projectedCloseDate,
+  targetCloseDate,
+}: {
+  progressPct: number | null;
+  onTrack: boolean | null;
+  projectedCloseDate: Date | null;
+  targetCloseDate: Date | null;
+}) {
+  const pct = progressPct === null ? null : Math.max(0, Math.min(1, progressPct));
+  const pctText = pct === null ? "–" : `${Math.round(pct * 100)}%`;
+
+  const statusText =
+    onTrack === null ? "" : onTrack ? "On track" : "Off track";
+
+  const accent = onTrack === null ? "#94a3b8" : onTrack ? "#34d399" : "#fb7185"; // slate/green/red
+  const track = "rgba(255,255,255,0.12)";
+
+  const ringStyle: React.CSSProperties =
+    pct === null
+      ? { background: `conic-gradient(${track} 0deg, ${track} 360deg)` }
+      : {
+          background: `conic-gradient(${accent} ${Math.round(
+            pct * 360
+          )}deg, ${track} 0deg)`,
+        };
+
+  return (
+    <div className="flex items-center gap-3">
+      <div
+        className="relative h-14 w-14 rounded-full p-[3px]"
+        style={ringStyle}
+        title={statusText}
+      >
+        <div className="flex h-full w-full items-center justify-center rounded-full bg-slate-950/60">
+          <div className="text-xs font-semibold" style={{ color: accent }}>
+            {pctText}
+          </div>
+        </div>
+      </div>
+
+      <div className="text-xs text-white/70">
+        <div className={onTrack === null ? "text-white/70" : onTrack ? "text-emerald-200" : "text-rose-200"}>
+          {statusText || "Progress"}
+        </div>
+        <div className="text-white/60">
+          Target close: {targetCloseDate ? formatAuDate(targetCloseDate.toISOString()) : "–"}
+        </div>
+        <div className="text-white/60">
+          Projected close: {projectedCloseDate ? formatAuDate(projectedCloseDate.toISOString()) : "–"}
+        </div>
+      </div>
     </div>
   );
 }
