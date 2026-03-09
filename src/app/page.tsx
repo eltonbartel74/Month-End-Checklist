@@ -635,7 +635,7 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-end gap-3 w-full sm:w-auto sm:flex-nowrap sm:justify-end">
+        <div className="flex w-full items-start justify-between gap-6 sm:w-[560px]">
           <ProgressRing
             sizePx={112}
             progressPct={kpis.progressPct}
@@ -644,36 +644,38 @@ export default function Home() {
             targetCloseDate={kpis.targetCloseDate}
           />
 
-          <div>
-            <div className="text-xs text-white/60">Period (YYYY-MM)</div>
-            <input
-              className="h-10 w-[140px] rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
-              value={period}
-              onChange={(e) => setPeriod(e.target.value)}
-            />
-          </div>
-          <button
-            className="jam-btn jam-btn-primary h-10"
-            type="button"
-            onClick={() => void closeMonth()}
-            disabled={closing}
-          >
-            {closing ? "Closing…" : "Month Closed"}
-          </button>
+          <div className="flex items-start gap-2">
+            <div>
+              <div className="text-xs text-white/60">Period (YYYY-MM)</div>
+              <input
+                className="h-10 w-[140px] rounded border border-white/15 bg-black/20 px-3 text-sm outline-none"
+                value={period}
+                onChange={(e) => setPeriod(e.target.value)}
+              />
+            </div>
+            <button
+              className="jam-btn jam-btn-primary h-10"
+              type="button"
+              onClick={() => void closeMonth()}
+              disabled={closing}
+            >
+              {closing ? "Closing…" : "Month Closed"}
+            </button>
 
-          <button
-            className="jam-btn h-10 sm:ml-2"
-            type="button"
-            onClick={async () => {
-              try {
-                await sb.auth.signOut();
-              } finally {
-                window.location.href = "/login";
-              }
-            }}
-          >
-            Sign out
-          </button>
+            <button
+              className="jam-btn h-10"
+              type="button"
+              onClick={async () => {
+                try {
+                  await sb.auth.signOut();
+                } finally {
+                  window.location.href = "/login";
+                }
+              }}
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </div>
 
