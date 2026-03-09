@@ -44,9 +44,12 @@ type Task = {
   _count?: { attachments: number };
 };
 
+type Me = { email: string; role: "MANAGER" | "STAFF"; ownerNames: string[] };
+
 export default function Home() {
   const sb = useMemo(() => supabaseBrowser(), []);
 
+  const [me, setMe] = useState<Me | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
@@ -150,6 +153,20 @@ export default function Home() {
   // Initial load
   useEffect(() => {
     void refresh();
+
+    // Load current user (role + owner mappings) so we can scope KPIs for staff.
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (!res.ok) return;
+        const data = (await res.json().catch(() => null)) as
+          | { ok: true; email: string; role: "MANAGER" | "STAFF"; ownerNames: string[] }
+          | null;
+        if (data?.ok) setMe({ email: data.email, role: data.role, ownerNames: data.ownerNames });
+      } catch {
+        // ignore
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -169,24 +186,38 @@ export default function Home() {
     return () => clearInterval(t);
   }, []);
 
+  const kpiTasks = useMemo(() => {
+    if (!me || me.role === "MANAGER") return tasks;
+
+    const email = (me.email ?? "").trim().toLowerCase();
+    const names = (me.ownerNames ?? []).map((x) => x.trim().toLowerCase()).filter(Boolean);
+
+    return tasks.filter((t) => {
+      const o = (t.owner ?? "").trim().toLowerCase();
+      if (!o) return false;
+      if (email && o === email) return true;
+      return names.includes(o);
+    });
+  }, [tasks, me]);
+
   const kpis = useMemo(() => {
-    const total = tasks.length;
-    const doneTasks = tasks.filter((t) => t.status === "DONE");
+    const total = kpiTasks.length;
+    const doneTasks = kpiTasks.filter((t) => t.status === "DONE");
     const done = doneTasks.length;
-    const overdue = tasks.filter((t) => {
+    const overdue = kpiTasks.filter((t) => {
       if (t.status === "DONE") return false;
       const due = dueDateForKpi(t, period);
       return Boolean(due && due.getTime() < now);
     }).length;
 
-    const dueNext7 = tasks.filter((t) => {
+    const dueNext7 = kpiTasks.filter((t) => {
       if (t.status === "DONE") return false;
       const due = dueDateForKpi(t, period);
       if (!due) return false;
       const ms = due.getTime() - now;
       return ms >= 0 && ms <= 7 * 24 * 60 * 60 * 1000;
     }).length;
-    const inProgress = tasks.filter((t) => t.status === "IN_PROGRESS").length;
+    const inProgress = kpiTasks.filter((t) => t.status === "IN_PROGRESS").length;
 
     const doneWithDue = doneTasks.filter((t) => Boolean(dueDateForKpi(t, period) && t.lastDoneAt));
     const doneOnTime = doneWithDue.filter((t) => {
@@ -201,7 +232,7 @@ export default function Home() {
     const onTimePct = doneWithDue.length === 0 ? null : doneOnTime / doneWithDue.length;
 
     // Due-to-date %: tasks that are promised on/before today (SA business day logic) and are DONE.
-    const dueToDateTasks = tasks.filter((t) => {
+    const dueToDateTasks = kpiTasks.filter((t) => {
       const due = dueDateForKpi(t, period);
       return Boolean(due && due.getTime() <= now);
     });
@@ -241,7 +272,7 @@ export default function Home() {
     let completedHours: number | null = 0;
     let missingHours = 0;
 
-    for (const t of tasks) {
+    for (const t of kpiTasks) {
       const bh = budgetHoursForTask(t);
       if (bh === null) {
         missingHours++;
@@ -258,7 +289,7 @@ export default function Home() {
     const progressPct =
       budgetedHours && budgetedHours > 0 ? completedHours! / budgetedHours : null;
 
-    const rework = tasks.filter(
+    const rework = kpiTasks.filter(
       (t) =>
         (t.frequency ?? "").toLowerCase() === "monthly" &&
         t.approvalStatus === "CHANGES_REQUESTED"
@@ -296,7 +327,7 @@ export default function Home() {
     let expectedBudgetedHours: number | null = 0;
     let expectedMissingHours = 0;
 
-    for (const t of tasks) {
+    for (const t of kpiTasks) {
       const due = dueDateForKpi(t, period);
       if (!due || due.getTime() > todayUtc.getTime()) continue;
 
@@ -346,7 +377,7 @@ export default function Home() {
             const dueHours: Array<{ ts: number; hours: number }> = [];
             let plannedFinishTs: number | null = null;
 
-            for (const t of tasks) {
+            for (const t of kpiTasks) {
               const due = dueDateForKpi(t, period);
               if (!due) continue;
               const bh = budgetHoursForTask(t);
@@ -420,7 +451,7 @@ export default function Home() {
       projectedCloseDate,
       targetCloseDate,
     };
-  }, [tasks, now, period]);
+  }, [kpiTasks, now, period]);
 
   const ownerOptions = useMemo(() => {
     const set = new Set<string>();
@@ -767,7 +798,9 @@ export default function Home() {
 
       <div className="rounded-md border border-white/10 bg-white/5 p-4">
         <div>
-          <div className="text-sm text-white/80">KPIs (live)</div>
+          <div className="text-sm text-white/80">
+            KPIs (live){me?.role === "STAFF" ? " – your tasks" : ""}
+          </div>
           <div className="mt-1 text-xs text-white/60">
             Progress is based on budgeted hours vs completed hours.
           </div>
