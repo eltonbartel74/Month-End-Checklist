@@ -2,6 +2,8 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { isBusinessDay, isSaPublicHoliday } from "@/lib/schedule";
+import { supabaseBrowser } from "@/lib/supabase/client";
+import { startIdleLogout } from "@/lib/idleLogout";
 // (removed) SharePoint integration pending; no in-app working paper uploads for now
 
 type TaskStatus = "NOT_STARTED" | "IN_PROGRESS" | "WAITING" | "BLOCKED" | "DONE";
@@ -43,6 +45,8 @@ type Task = {
 };
 
 export default function Home() {
+  const sb = useMemo(() => supabaseBrowser(), []);
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
@@ -147,6 +151,15 @@ export default function Home() {
   useEffect(() => {
     void refresh();
   }, []);
+
+  useEffect(() => {
+    // Force logout after 12 hours of inactivity.
+    // This is client-side inactivity (not absolute session lifetime).
+    return startIdleLogout({
+      sb,
+      idleMs: 12 * 60 * 60 * 1000,
+    });
+  }, [sb]);
 
   const [now, setNow] = useState(() => Date.now());
 
@@ -552,6 +565,19 @@ export default function Home() {
         </div>
 
         <div className="flex flex-wrap items-end gap-2">
+          <button
+            className="jam-btn h-10"
+            type="button"
+            onClick={async () => {
+              try {
+                await sb.auth.signOut();
+              } finally {
+                window.location.href = "/login";
+              }
+            }}
+          >
+            Sign out
+          </button>
           <div>
             <div className="text-xs text-white/60">Period (YYYY-MM)</div>
             <input
