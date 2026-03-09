@@ -177,7 +177,10 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   try {
-    await requireAuthedUser();
+    const user = await requireAuthedUser();
+    if (user.role !== "MANAGER") {
+      return NextResponse.json({ error: "Not authorised" }, { status: 403 });
+    }
 
     const url = new URL(req.url);
     const period = url.searchParams.get("period");
