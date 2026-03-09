@@ -635,7 +635,7 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-end gap-2 w-full sm:w-auto sm:flex-nowrap sm:justify-end">
+        <div className="flex flex-wrap items-end gap-3 w-full sm:w-auto sm:flex-nowrap sm:justify-end">
           <ProgressRing
             sizePx={112}
             progressPct={kpis.progressPct}
@@ -1239,7 +1239,7 @@ function ProgressRing({
   const ringInset = Math.max(6, Math.round(sizePx * 0.11));
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-start gap-3">
       <div className="relative" style={{ width: sizePx, height: sizePx }} title={statusText}>
         {/* Outer expected ring */}
         <div className="absolute inset-0 rounded-full p-[3px]" style={outerStyle}>
@@ -1261,7 +1261,7 @@ function ProgressRing({
         </div>
       </div>
 
-      <div className="text-xs text-white/70">
+      <div className="text-xs text-white/70 pt-[2px] leading-[1.15]">
         <div
           className={
             tier === "neutral"
