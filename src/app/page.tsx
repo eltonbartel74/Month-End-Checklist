@@ -243,7 +243,7 @@ export default function Home() {
     }
 
     if (missingHours > 0) {
-      // Keep totals, but flag that they’re incomplete.
+      // Keep totals, but flag that they're incomplete.
     }
 
     const progressPct =
@@ -459,7 +459,7 @@ export default function Home() {
   }
 
   async function deleteTask(id: string, title: string) {
-    const ok = window.confirm(`Delete task “${title}”? This can’t be undone.`);
+    const ok = window.confirm(`Delete task "${title}"? This can't be undone.`);
     if (!ok) return;
 
     setActionError(null);
@@ -631,24 +631,19 @@ export default function Home() {
             Finance Task Hub
           </h1>
           <p className="mt-1 text-white/80">
-            Visibility on finance tasks, owners, and due dates — without chasing people.
+            Visibility on finance tasks, owners, and due dates - without chasing people.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-end gap-2">
-          <button
-            className="jam-btn h-10"
-            type="button"
-            onClick={async () => {
-              try {
-                await sb.auth.signOut();
-              } finally {
-                window.location.href = "/login";
-              }
-            }}
-          >
-            Sign out
-          </button>
+        <div className="flex flex-wrap items-end gap-2 w-full sm:w-auto sm:flex-nowrap sm:justify-end">
+          <ProgressRing
+            sizePx={112}
+            progressPct={kpis.progressPct}
+            expectedProgressPct={kpis.expectedProgressPct}
+            projectedCloseDate={kpis.projectedCloseDate}
+            targetCloseDate={kpis.targetCloseDate}
+          />
+
           <div>
             <div className="text-xs text-white/60">Period (YYYY-MM)</div>
             <input
@@ -665,24 +660,29 @@ export default function Home() {
           >
             {closing ? "Closing…" : "Month Closed"}
           </button>
+
+          <button
+            className="jam-btn h-10 sm:ml-2"
+            type="button"
+            onClick={async () => {
+              try {
+                await sb.auth.signOut();
+              } finally {
+                window.location.href = "/login";
+              }
+            }}
+          >
+            Sign out
+          </button>
         </div>
       </div>
 
       <div className="rounded-md border border-white/10 bg-white/5 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="text-sm text-white/80">KPIs (live)</div>
-            <div className="mt-1 text-xs text-white/60">
-              Progress is based on budgeted hours vs completed hours.
-            </div>
+        <div>
+          <div className="text-sm text-white/80">KPIs (live)</div>
+          <div className="mt-1 text-xs text-white/60">
+            Progress is based on budgeted hours vs completed hours.
           </div>
-
-          <ProgressRing
-            progressPct={kpis.progressPct}
-            expectedProgressPct={kpis.expectedProgressPct}
-            projectedCloseDate={kpis.projectedCloseDate}
-            targetCloseDate={kpis.targetCloseDate}
-          />
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-9">
@@ -695,7 +695,7 @@ export default function Home() {
           <Kpi
             label="On-time %"
             value={
-              kpis.onTimePct === null ? "–" : `${Math.round(kpis.onTimePct * 100)}%`
+              kpis.onTimePct === null ? "-" : `${Math.round(kpis.onTimePct * 100)}%`
             }
           />
           <Kpi
@@ -704,7 +704,7 @@ export default function Home() {
               kpis.missingHours
                 ? "Fill hrs"
                 : kpis.budgetedHours === null
-                  ? "–"
+                  ? "-"
                   : String(Math.round(kpis.budgetedHours * 10) / 10)
             }
           />
@@ -714,20 +714,11 @@ export default function Home() {
               kpis.missingHours
                 ? "Fill hrs"
                 : kpis.completedHours === null
-                  ? "–"
+                  ? "-"
                   : String(Math.round(kpis.completedHours * 10) / 10)
             }
           />
-          <Kpi
-            label={`Progress % (${period})`}
-            value={
-              kpis.missingHours
-                ? "Fill hrs"
-                : kpis.progressPct === null
-                  ? "–"
-                  : `${Math.round(kpis.progressPct * 100)}%`
-            }
-          />
+          {/* Progress % tile removed (redundant with progress ring) */}
         </div>
 
         <OwnerAccordion tasks={tasks} period={period} />
@@ -738,8 +729,7 @@ export default function Home() {
           <div>
             <div className="text-sm font-semibold">Tasks</div>
             <div className="mt-1 text-xs text-white/70">
-              Tip: keep Due date for “when it should be done”, and ETA for “when
-              it will be done”.
+              Tip: keep Due date for “when it should be done”, and ETA for “when it will be done”.
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -907,7 +897,7 @@ export default function Home() {
                             ))}
                           </select>
                           <div className="mt-1 text-[11px] text-slate-500">
-                            Monthly tasks repeat — this is the day of the month (e.g. 7 = the 7th).
+                            Monthly tasks repeat - this is the day of the month (e.g. 7 = the 7th).
                           </div>
                         </div>
                       ) : wType === "adhoc" ? (
@@ -960,7 +950,7 @@ export default function Home() {
 
                       {wType === "daily" ? (
                         <div>
-                          <div className="text-xs text-slate-600">Time (optional) — runs Mon–Fri</div>
+                          <div className="text-xs text-slate-600">Time (optional) - runs Mon-Fri</div>
                           <input
                             type="time"
                             className="mt-1 h-10 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none"
@@ -1185,11 +1175,13 @@ function Kpi({ label, value }: { label: string; value: string }) {
 }
 
 function ProgressRing({
+  sizePx = 56,
   progressPct,
   expectedProgressPct,
   projectedCloseDate,
   targetCloseDate,
 }: {
+  sizePx?: number;
   progressPct: number | null;
   expectedProgressPct: number | null;
   projectedCloseDate: Date | null;
@@ -1199,7 +1191,7 @@ function ProgressRing({
   const expected =
     expectedProgressPct === null ? null : Math.max(0, Math.min(1, expectedProgressPct));
 
-  const pctText = pct === null ? "–" : `${Math.round(pct * 100)}%`;
+  const pctText = pct === null ? "-" : `${Math.round(pct * 100)}%`;
 
   const delta = pct === null || expected === null ? null : pct - expected;
 
@@ -1244,18 +1236,25 @@ function ProgressRing({
       ? { background: `conic-gradient(${track} 0deg, ${track} 360deg)` }
       : { background: `conic-gradient(${accent} ${Math.round(pct * 360)}deg, ${track} 0deg)` };
 
+  const ringInset = Math.max(6, Math.round(sizePx * 0.11));
+
   return (
     <div className="flex items-center gap-3">
-      <div className="relative h-14 w-14" title={statusText}>
+      <div className="relative" style={{ width: sizePx, height: sizePx }} title={statusText}>
         {/* Outer expected ring */}
         <div className="absolute inset-0 rounded-full p-[3px]" style={outerStyle}>
           <div className="h-full w-full rounded-full bg-slate-950/60" />
         </div>
 
         {/* Inner actual ring */}
-        <div className="absolute inset-[6px] rounded-full p-[3px]" style={innerStyle}>
+        <div className="absolute rounded-full p-[3px]" style={{ ...innerStyle, inset: ringInset }}>
           <div className="flex h-full w-full items-center justify-center rounded-full bg-slate-950/60">
-            <div className="text-xs font-semibold" style={{ color: accent }}>
+            <div
+              className={
+                "font-semibold " + (sizePx >= 96 ? "text-base" : "text-xs")
+              }
+              style={{ color: accent }}
+            >
               {pctText}
             </div>
           </div>
@@ -1277,10 +1276,10 @@ function ProgressRing({
           {statusText || "Progress"}
         </div>
         <div className="text-white/60">
-          Target close: {targetCloseDate ? formatAuDate(targetCloseDate.toISOString()) : "–"}
+          Target close: {targetCloseDate ? formatAuDate(targetCloseDate.toISOString()) : "-"}
         </div>
         <div className="text-white/60">
-          Projected close: {projectedCloseDate ? formatAuDate(projectedCloseDate.toISOString()) : "–"}
+          Projected close: {projectedCloseDate ? formatAuDate(projectedCloseDate.toISOString()) : "-"}
         </div>
       </div>
     </div>
@@ -1346,7 +1345,7 @@ function formatSchedule(t: Task) {
   }
   if (f === "daily") {
     const time = t.dailyTime ? ` ${t.dailyTime}` : "";
-    return `Mon–Fri${time}`;
+    return `Mon-Fri${time}`;
   }
   return "";
 }
@@ -1374,7 +1373,7 @@ function monthlyGateInfo(t: Task): { label: string; title: string; tone: "neutra
     return {
       tone: "warn",
       label: "Gated",
-      title: "Can’t be marked DONE until all other monthly tasks are DONE.",
+      title: "Can't be marked DONE until all other monthly tasks are DONE.",
     };
   }
 
@@ -1383,7 +1382,7 @@ function monthlyGateInfo(t: Task): { label: string; title: string; tone: "neutra
       tone: "warn",
       label: "Gated",
       title:
-        "Can’t be marked DONE until all other monthly tasks are DONE (excluding Lock Posting Periods + BAS/DFC/FBT).",
+        "Can't be marked DONE until all other monthly tasks are DONE (excluding Lock Posting Periods + BAS/DFC/FBT).",
     };
   }
 
@@ -1392,7 +1391,7 @@ function monthlyGateInfo(t: Task): { label: string; title: string; tone: "neutra
       tone: "warn",
       label: "Gated",
       title:
-        "Can’t be marked DONE until all other monthly tasks are DONE (excluding Lock Posting Periods + BAS/DFC/FBT).",
+        "Can't be marked DONE until all other monthly tasks are DONE (excluding Lock Posting Periods + BAS/DFC/FBT).",
     };
   }
 
@@ -1439,7 +1438,7 @@ function StatusChips({
     },
   ];
 
-  const current = options.find((o) => o.v === value)?.label ?? "–";
+  const current = options.find((o) => o.v === value)?.label ?? "-";
 
   return (
     <div>
@@ -1804,7 +1803,7 @@ function OwnerAccordion({ tasks, period }: { tasks: Task[]; period: string }) {
                       <span>Done: {r.done}</span>
                       <span>Overdue: {r.overdue}</span>
                       <span>
-                        On-time: {r.onTimePct === null ? "–" : `${Math.round(r.onTimePct * 100)}%`}
+                        On-time: {r.onTimePct === null ? "-" : `${Math.round(r.onTimePct * 100)}%`}
                       </span>
                       <span>
                         Budget hrs: {r.hoursMissing ? "Fill hrs" : String(Math.round(r.budgetHours * 10) / 10)}
@@ -1813,10 +1812,10 @@ function OwnerAccordion({ tasks, period }: { tasks: Task[]; period: string }) {
                         Done hrs: {r.hoursMissing ? "Fill hrs" : String(Math.round(r.doneHours * 10) / 10)}
                       </span>
                       <span>
-                        Progress: {progressPct === null ? "–" : `${Math.round(progressPct * 100)}%`}
+                        Progress: {progressPct === null ? "-" : `${Math.round(progressPct * 100)}%`}
                       </span>
                       <span>
-                        Budget share: {budgetSharePct === null ? "–" : `${Math.round(budgetSharePct * 100)}%`}
+                        Budget share: {budgetSharePct === null ? "-" : `${Math.round(budgetSharePct * 100)}%`}
                       </span>
                     </div>
                   </div>
@@ -1837,7 +1836,7 @@ function OwnerAccordion({ tasks, period }: { tasks: Task[]; period: string }) {
                             {(t.frequency ?? "").toLowerCase()} • {t.status.toLowerCase().replaceAll("_", " ")}
                           </div>
                         </div>
-                        <div className="text-xs text-white/60">Hrs: {t.estHoursPm ?? "–"}</div>
+                        <div className="text-xs text-white/60">Hrs: {t.estHoursPm ?? "-"}</div>
                       </div>
                     ))}
                 </div>
@@ -2199,7 +2198,7 @@ const GroupedRows = React.memo(function GroupedRows({
                   onBlur={async (e) => {
                     const next = e.target.value.trim() ? e.target.value : null;
 
-                    // clear any previous “Saved” flash
+                    // clear any previous "Saved" flash
                     setSavedOwnerIds((prev) => {
                       const s = new Set(prev);
                       s.delete(t.id);
@@ -2295,7 +2294,7 @@ const GroupedRows = React.memo(function GroupedRows({
                       ) {
                         if (typeof window !== "undefined") {
                           window.alert(
-                            `Can’t complete "${t.title}" until a working paper is uploaded (month-end only).`
+                            `Can't complete "${t.title}" until a working paper is uploaded (month-end only).`
                           );
                         }
                         return;
@@ -2326,7 +2325,7 @@ const GroupedRows = React.memo(function GroupedRows({
                         if (remaining.length) {
                           if (typeof window !== "undefined") {
                             window.alert(
-                              `Can’t complete "${t.title}": ${remaining.length} monthly task(s) still not DONE.`
+                              `Can't complete "${t.title}": ${remaining.length} monthly task(s) still not DONE.`
                             );
                           }
                           return;
@@ -2356,28 +2355,28 @@ const GroupedRows = React.memo(function GroupedRows({
                           return x.status !== "DONE";
                         });
 
-                      // Gate 2: reporting tasks can’t be marked DONE until all other monthly tasks are DONE
+                      // Gate 2: reporting tasks can't be marked DONE until all other monthly tasks are DONE
                       // (excluding "Lock Posting Periods" + tax end tasks)
                       if (isMonthlyGateReport) {
                         const remaining = monthlyRemainingExcludingLockAndTax();
                         if (remaining.length) {
                           if (typeof window !== "undefined") {
                             window.alert(
-                              `Can’t complete "${t.title}": ${remaining.length} other monthly task(s) still not DONE (excluding Lock Posting Periods + BAS/DFC/FBT).`
+                              `Can't complete "${t.title}": ${remaining.length} other monthly task(s) still not DONE (excluding Lock Posting Periods + BAS/DFC/FBT).`
                             );
                           }
                           return;
                         }
                       }
 
-                      // Gate 3: BAS/DFC/FBT tasks can’t be marked DONE until all other monthly tasks are DONE
+                      // Gate 3: BAS/DFC/FBT tasks can't be marked DONE until all other monthly tasks are DONE
                       // (excluding "Lock Posting Periods" + these tax end tasks)
                       if (isTaxEndTask) {
                         const remaining = monthlyRemainingExcludingLockAndTax();
                         if (remaining.length) {
                           if (typeof window !== "undefined") {
                             window.alert(
-                              `Can’t complete "${t.title}": ${remaining.length} other monthly task(s) still not DONE (excluding Lock Posting Periods + BAS/DFC/FBT).`
+                              `Can't complete "${t.title}": ${remaining.length} other monthly task(s) still not DONE (excluding Lock Posting Periods + BAS/DFC/FBT).`
                             );
                           }
                           return;
@@ -2430,7 +2429,7 @@ const GroupedRows = React.memo(function GroupedRows({
                         if (incomplete.length) {
                           if (typeof window !== "undefined") {
                             window.alert(
-                              `Can’t start this task until dependency is complete: ${incomplete.join(
+                              `Can't start this task until dependency is complete: ${incomplete.join(
                                 ", "
                               )}`
                             );
@@ -2519,7 +2518,7 @@ const GroupedRows = React.memo(function GroupedRows({
                 <input
                   className="w-full min-w-0 rounded border border-white/10 bg-black/10 px-2 py-1 text-white/90"
                   value={t.estHoursPm ?? ""}
-                  placeholder="–"
+                  placeholder="-"
                   onChange={(e) =>
                     setTasks((prev) =>
                       prev.map((x) =>
@@ -2610,7 +2609,7 @@ const GroupedRows = React.memo(function GroupedRows({
 
                       <input
                         className="w-full rounded border border-white/10 bg-black/10 px-2 py-1 text-white/90"
-                        placeholder={deps.length ? "Add dependency…" : "–"}
+                        placeholder={deps.length ? "Add dependency…" : "-"}
                         list={`dep-datalist-${t.id}`}
                         onKeyDown={(e) => {
                           if (e.key !== "Enter") return;
@@ -2664,7 +2663,7 @@ const GroupedRows = React.memo(function GroupedRows({
               </td>
               <td className="py-2 pr-3">
                 {(t.frequency ?? "").toLowerCase() === "daily" ? (
-                  <div className="text-white/80">{formatSchedule(t) || "–"}</div>
+                  <div className="text-white/80">{formatSchedule(t) || "-"}</div>
                 ) : (t.frequency ?? "").toLowerCase() === "weekly" ? (
                   editingScheduleId === t.id ? (
                     <div className="flex flex-wrap items-center gap-2">
@@ -2710,7 +2709,7 @@ const GroupedRows = React.memo(function GroupedRows({
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <div className="text-white/80">{formatSchedule(t) || "–"}</div>
+                      <div className="text-white/80">{formatSchedule(t) || "-"}</div>
                       <button
                         type="button"
                         className="text-xs text-white/60 underline hover:text-white/80"
@@ -2838,7 +2837,7 @@ const GroupedRows = React.memo(function GroupedRows({
               <td className="py-2 pr-3">
                 {((t.frequency ?? "").toLowerCase() === "daily" ||
                   (t.frequency ?? "").toLowerCase() === "weekly") ? (
-                  <div className="text-white/60">–</div>
+                  <div className="text-white/60">-</div>
                 ) : (
                   <input
                     key={`eta_${t.id}_${t.updatedAt}`}
@@ -2866,7 +2865,7 @@ const GroupedRows = React.memo(function GroupedRows({
                   rows={3}
                   className="w-full min-w-0 rounded border border-white/10 bg-black/10 px-2 py-1 text-white/90 leading-snug resize-y"
                   value={t.blocker ?? ""}
-                  placeholder="–"
+                  placeholder="-"
                   onChange={(e) =>
                     setTasks((prev) =>
                       prev.map((x) =>
