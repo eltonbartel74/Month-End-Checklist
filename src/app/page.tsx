@@ -635,7 +635,7 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="flex w-full items-start justify-between gap-6 sm:w-[560px]">
+        <div className="flex w-full items-start gap-4 sm:w-[560px] sm:flex-nowrap sm:justify-end">
           <ProgressRing
             sizePx={112}
             progressPct={kpis.progressPct}
@@ -644,7 +644,7 @@ export default function Home() {
             targetCloseDate={kpis.targetCloseDate}
           />
 
-          <div className="flex items-start gap-2">
+          <div className="flex items-start gap-2 flex-none">
             <div>
               <div className="text-xs text-white/60">Period (YYYY-MM)</div>
               <input
@@ -1242,7 +1242,7 @@ function ProgressRing({
 
   return (
     <div className="flex items-start gap-3">
-      <div className="relative" style={{ width: sizePx, height: sizePx }} title={statusText}>
+      <div className="relative flex-none" style={{ width: sizePx, height: sizePx }} title={statusText}>
         {/* Outer expected ring */}
         <div className="absolute inset-0 rounded-full p-[3px]" style={outerStyle}>
           <div className="h-full w-full rounded-full bg-slate-950/60" />
