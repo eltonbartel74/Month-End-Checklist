@@ -540,20 +540,26 @@ export default function Home() {
     // Also normalise ordering to promised date so the UI never looks "out of order".
     setTasks((prev) => {
       const next = prev.map((t) => (t.id === id ? res.task : t));
+
+      // PERF: precompute promised-date sort keys once per task, not on every comparator call.
+      const dueKey = new Map<string, number>();
+      for (const t of next) {
+        const key = dueDateForKpi(t, period)?.getTime();
+        dueKey.set(t.id, Number.isFinite(key ?? NaN) ? (key as number) : Number.MAX_SAFE_INTEGER);
+      }
+
+      const rank = (f: string) =>
+        f === "daily" ? 0 : f === "weekly" ? 1 : f === "adhoc" ? 2 : f === "monthly" ? 3 : 4;
+
       return next
         .slice()
         .sort((a, b) => {
-          const fa = (a.frequency ?? "").toLowerCase();
-          const fb = (b.frequency ?? "").toLowerCase();
-
-          const rank = (f: string) =>
-            f === "daily" ? 0 : f === "weekly" ? 1 : f === "adhoc" ? 2 : f === "monthly" ? 3 : 4;
-          const ra = rank(fa);
-          const rb = rank(fb);
+          const ra = rank((a.frequency ?? "").toLowerCase());
+          const rb = rank((b.frequency ?? "").toLowerCase());
           if (ra !== rb) return ra - rb;
 
-          const da = dueDateForKpi(a, period)?.getTime() ?? Number.MAX_SAFE_INTEGER;
-          const db = dueDateForKpi(b, period)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+          const da = dueKey.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+          const db = dueKey.get(b.id) ?? Number.MAX_SAFE_INTEGER;
           if (da !== db) return da - db;
 
           return (a.title ?? "").localeCompare(b.title ?? "");
