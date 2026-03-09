@@ -200,6 +200,15 @@ export default function Home() {
 
     const onTimePct = doneWithDue.length === 0 ? null : doneOnTime / doneWithDue.length;
 
+    // Due-to-date %: tasks that are promised on/before today (SA business day logic) and are DONE.
+    const dueToDateTasks = tasks.filter((t) => {
+      const due = dueDateForKpi(t, period);
+      return Boolean(due && due.getTime() <= now);
+    });
+    const dueToDateTotal = dueToDateTasks.length;
+    const dueToDateDone = dueToDateTasks.filter((t) => t.status === "DONE").length;
+    const dueToDatePct = dueToDateTotal === 0 ? null : dueToDateDone / dueToDateTotal;
+
     // Capacity / progress (budgeted vs completed) based on Est Hrs P/M
     const parseHours = (s: string | null) => {
       if (!s) return null;
@@ -323,6 +332,7 @@ export default function Home() {
       done,
       rework,
       onTimePct,
+      dueToDatePct,
 
       budgetedHours,
       completedHours,
@@ -694,6 +704,14 @@ export default function Home() {
           <Kpi label="In progress" value={String(kpis.inProgress)} />
           <Kpi label="Done" value={String(kpis.done)} />
           <Kpi label="Rework" value={String(kpis.rework)} />
+          <Kpi
+            label="Due-to-date %"
+            value={
+              kpis.dueToDatePct === null
+                ? "-"
+                : `${Math.round(kpis.dueToDatePct * 100)}%`
+            }
+          />
           <Kpi
             label="On-time %"
             value={
