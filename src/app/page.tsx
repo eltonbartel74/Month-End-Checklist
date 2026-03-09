@@ -290,16 +290,32 @@ export default function Home() {
       ? Math.max(0, businessDaysBetweenUtc(closeWindowStart, todayUtc))
       : null;
 
-    // Total business days available (start -> target)
-    const totalBusinessDaysToTarget =
-      closeWindowStart && targetCloseDate
-        ? Math.max(1, businessDaysBetweenUtc(closeWindowStart, targetCloseDate))
-        : null;
+    // Expected progress (outer ring): by today, what portion of the TOTAL budgeted hours
+    // should be DONE, based on tasks whose Promised date is on/before today.
+    // This keeps the comparison apples-to-apples with the inner ring (hours-based).
+    let expectedBudgetedHours: number | null = 0;
+    let expectedMissingHours = 0;
+
+    for (const t of tasks) {
+      const due = dueDateForKpi(t, period);
+      if (!due || due.getTime() > todayUtc.getTime()) continue;
+
+      const bh = budgetHoursForTask(t);
+      if (bh === null) {
+        expectedMissingHours++;
+        continue;
+      }
+      expectedBudgetedHours! += bh;
+    }
+
+    if (expectedMissingHours > 0) {
+      // Leave expectedBudgetedHours as-is; we still want a directional %.
+    }
 
     const expectedProgressPct =
-      elapsedBusinessDays === null || totalBusinessDaysToTarget === null
-        ? null
-        : Math.min(1, elapsedBusinessDays / totalBusinessDaysToTarget);
+      budgetedHours && budgetedHours > 0
+        ? Math.min(1, Math.max(0, expectedBudgetedHours! / budgetedHours))
+        : null;
 
     const onTrack =
       progressPct === null || expectedProgressPct === null
