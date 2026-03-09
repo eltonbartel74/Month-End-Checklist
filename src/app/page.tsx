@@ -298,7 +298,13 @@ export default function Home() {
         : progressPct + 0.08 >= expectedProgressPct; // 8% tolerance
 
     const projectedCloseDate =
-      progressPct === null || progressPct <= 0 || elapsedBusinessDays === null || elapsedBusinessDays <= 0
+      progressPct === null ||
+      progressPct <= 0 ||
+      elapsedBusinessDays === null ||
+      elapsedBusinessDays <= 0 ||
+      // Hide projection until we have enough signal.
+      // Rule: show once we hit 5% progress OR 5 tasks DONE.
+      (progressPct < 0.05 && done < 5)
         ? null
         : (() => {
             const ratePerBusinessDay = progressPct / elapsedBusinessDays;
