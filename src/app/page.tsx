@@ -679,6 +679,7 @@ export default function Home() {
 
           <ProgressRing
             progressPct={kpis.progressPct}
+            expectedProgressPct={kpis.expectedProgressPct}
             onTrack={kpis.onTrack}
             projectedCloseDate={kpis.projectedCloseDate}
             targetCloseDate={kpis.targetCloseDate}
@@ -1186,43 +1187,54 @@ function Kpi({ label, value }: { label: string; value: string }) {
 
 function ProgressRing({
   progressPct,
+  expectedProgressPct,
   onTrack,
   projectedCloseDate,
   targetCloseDate,
 }: {
   progressPct: number | null;
+  expectedProgressPct: number | null;
   onTrack: boolean | null;
   projectedCloseDate: Date | null;
   targetCloseDate: Date | null;
 }) {
   const pct = progressPct === null ? null : Math.max(0, Math.min(1, progressPct));
+  const expected =
+    expectedProgressPct === null ? null : Math.max(0, Math.min(1, expectedProgressPct));
+
   const pctText = pct === null ? "–" : `${Math.round(pct * 100)}%`;
 
-  const statusText =
-    onTrack === null ? "" : onTrack ? "On track" : "Off track";
+  const statusText = onTrack === null ? "" : onTrack ? "On track" : "Off track";
 
   const accent = onTrack === null ? "#94a3b8" : onTrack ? "#34d399" : "#fb7185"; // slate/green/red
   const track = "rgba(255,255,255,0.12)";
+  const expectedColour = "rgba(255,255,255,0.55)";
 
-  const ringStyle: React.CSSProperties =
+  // Outer ring = expected, inner ring = actual.
+  const outerStyle: React.CSSProperties =
+    expected === null
+      ? { background: `conic-gradient(${track} 0deg, ${track} 360deg)` }
+      : { background: `conic-gradient(${expectedColour} ${Math.round(expected * 360)}deg, ${track} 0deg)` };
+
+  const innerStyle: React.CSSProperties =
     pct === null
       ? { background: `conic-gradient(${track} 0deg, ${track} 360deg)` }
-      : {
-          background: `conic-gradient(${accent} ${Math.round(
-            pct * 360
-          )}deg, ${track} 0deg)`,
-        };
+      : { background: `conic-gradient(${accent} ${Math.round(pct * 360)}deg, ${track} 0deg)` };
 
   return (
     <div className="flex items-center gap-3">
-      <div
-        className="relative h-14 w-14 rounded-full p-[3px]"
-        style={ringStyle}
-        title={statusText}
-      >
-        <div className="flex h-full w-full items-center justify-center rounded-full bg-slate-950/60">
-          <div className="text-xs font-semibold" style={{ color: accent }}>
-            {pctText}
+      <div className="relative h-14 w-14" title={statusText}>
+        {/* Outer expected ring */}
+        <div className="absolute inset-0 rounded-full p-[3px]" style={outerStyle}>
+          <div className="h-full w-full rounded-full bg-slate-950/60" />
+        </div>
+
+        {/* Inner actual ring */}
+        <div className="absolute inset-[6px] rounded-full p-[3px]" style={innerStyle}>
+          <div className="flex h-full w-full items-center justify-center rounded-full bg-slate-950/60">
+            <div className="text-xs font-semibold" style={{ color: accent }}>
+              {pctText}
+            </div>
           </div>
         </div>
       </div>
