@@ -798,8 +798,15 @@ export default function Home() {
 
       <div className="rounded-md border border-white/10 bg-white/5 p-4">
         <div>
-          <div className="text-sm text-white/80">
-            KPIs (live){me?.role === "STAFF" ? " – your tasks" : ""}
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm text-white/80">
+              KPIs (live){me?.role === "STAFF" ? " – your tasks" : ""}
+            </div>
+            {me?.role === "MANAGER" ? (
+              <a className="jam-btn h-9" href="/reports">
+                Reports
+              </a>
+            ) : null}
           </div>
           <div className="mt-1 text-xs text-white/60">
             Progress is based on budgeted hours vs completed hours.
