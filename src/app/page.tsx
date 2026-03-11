@@ -2734,12 +2734,14 @@ const GroupedRows = React.memo(function GroupedRows({
                       </button>
                     </div>
 
-                    <div className="text-[11px] text-white/60">
-                      {(t.approvalStatus ?? "NOT_SUBMITTED").replaceAll("_", " ")}
-                      {t.reviewedAt
-                        ? ` • ${new Date(t.reviewedAt).toLocaleDateString()}`
-                        : ""}
-                    </div>
+                    {(t.frequency ?? "").toLowerCase() === "monthly" ? (
+                      <div className="text-[11px] text-white/60">
+                        Review: {(t.approvalStatus ?? "NOT_SUBMITTED").replaceAll("_", " ")}
+                        {t.reviewedAt
+                          ? ` • ${new Date(t.reviewedAt).toLocaleDateString()}`
+                          : ""}
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
