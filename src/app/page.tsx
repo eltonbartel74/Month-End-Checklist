@@ -2038,17 +2038,7 @@ const GroupedRows = React.memo(function GroupedRows({
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [allTasks]);
 
-  const dueByTitle = useMemo(() => {
-    const map = new Map<string, Date>();
-    for (const t of allTasks) {
-      const title = (t.title ?? "").trim();
-      if (!title) continue;
-      const due = dueDateForKpi(t, period);
-      if (!due) continue;
-      map.set(title, due);
-    }
-    return map;
-  }, [allTasks, period]);
+  // (removed) dueByTitle cache (was unused)
 
   const daily = tasks
     .filter((t) => fx(t) === "daily")
@@ -2672,24 +2662,54 @@ const GroupedRows = React.memo(function GroupedRows({
                   const deps = parseDependencies(t.dependency);
                   const myDue = dueDateForKpi(t, period);
 
-                  const byTitle = new Map(
-                    allTasks.map((x) => [(x.title ?? "").trim(), x])
-                  );
+                  const norm = (s: string) =>
+                    s
+                      .toLowerCase()
+                      .trim()
+                      .replace(/\s+/g, " ");
+
+                  const byTitle = new Map(allTasks.map((x) => [norm(x.title ?? ""), x]));
+
+                  const isBankRecsEom = (s: string) => {
+                    const t = norm(s);
+                    return t.includes("bank") && t.includes("recon") && t.includes("eom");
+                  };
+
+                  const findBankRecsEom = () =>
+                    allTasks.find((x) => isBankRecsEom(x.title ?? "")) ?? null;
 
                   const depDues = deps
-                    .map((d) => ({ title: d, due: dueByTitle.get(d) }))
+                    .map((d) => {
+                      const dep = (d ?? "").trim();
+                      const exact = byTitle.get(norm(dep));
+                      if (exact) return { title: d, due: dueDateForKpi(exact, period) };
+
+                      if (isBankRecsEom(dep)) {
+                        const t = findBankRecsEom();
+                        if (t) return { title: d, due: dueDateForKpi(t, period) };
+                      }
+
+                      return { title: d, due: null };
+                    })
                     .filter((x) => Boolean(x.due)) as Array<{ title: string; due: Date }>;
+
                   const latestDep = depDues.sort((a, b) => b.due.getTime() - a.due.getTime())[0];
-                  const warn = Boolean(
-                    latestDep && myDue && myDue.getTime() < latestDep.due.getTime()
-                  );
+                  const warn = Boolean(latestDep && myDue && myDue.getTime() < latestDep.due.getTime());
 
                   const depStatuses = deps.map((d) => {
-                    const task = byTitle.get((d ?? "").trim());
-                    return { title: d, status: task?.status ?? null };
+                    const dep = (d ?? "").trim();
+                    const exact = byTitle.get(norm(dep));
+                    if (exact) return { title: d, status: exact.status ?? null };
+
+                    if (isBankRecsEom(dep)) {
+                      const t = findBankRecsEom();
+                      if (t) return { title: d, status: t.status ?? null };
+                    }
+
+                    return { title: d, status: null };
                   });
-                  const allDone =
-                    deps.length > 0 && depStatuses.every((x) => x.status === "DONE");
+
+                  const allDone = deps.length > 0 && depStatuses.every((x) => x.status === "DONE");
 
                   const chipClassFor = (status: string | null) => {
                     if (status === "DONE")
