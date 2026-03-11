@@ -1580,7 +1580,8 @@ function monthlyGateInfo(t: Task): { label: string; title: string; tone: "neutra
 
   const isMonthlyGateReport =
     title.includes("jamieson group monthly reporting model") ||
-    title.includes("monthly management board report pack finalised");
+    title.includes("monthly management board report pack finalised") ||
+    title.includes("report pack");
 
   const isTaxEndTask =
     title.includes("bas lodgement") ||
@@ -2545,7 +2546,8 @@ const GroupedRows = React.memo(function GroupedRows({
 
                       const isMonthlyGateReport =
                         title.includes("jamieson group monthly reporting model") ||
-                        title.includes("monthly management board report pack finalised");
+                        title.includes("monthly management board report pack finalised") ||
+                        title.includes("report pack");
 
                       const isTaxEndTask =
                         title.includes("bas lodgement") ||
