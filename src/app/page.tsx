@@ -50,6 +50,11 @@ export default function Home() {
   const sb = useMemo(() => supabaseBrowser(), []);
 
   const [me, setMe] = useState<Me | null>(null);
+  const canEditPromisedDate = useMemo(() => {
+    const email = (me?.email ?? "").trim().toLowerCase();
+    return email === "elton.bartel@jamieson.com.au" || email === "kylie.deane@jamieson.com.au";
+  }, [me]);
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
@@ -1291,6 +1296,7 @@ export default function Home() {
                   updateTask={updateTaskOptimistic}
                   deleteTask={deleteTask}
                   setTasks={setTasks}
+                  canEditPromisedDate={canEditPromisedDate}
                 />
               )}
             </tbody>
@@ -2004,6 +2010,7 @@ const GroupedRows = React.memo(function GroupedRows({
   updateTask,
   deleteTask,
   setTasks,
+  canEditPromisedDate,
 }: {
   tasks: Task[];
   allTasks: Task[];
@@ -2013,7 +2020,8 @@ const GroupedRows = React.memo(function GroupedRows({
   updateTask: (id: string, patch: Partial<Task>) => Promise<boolean>;
   deleteTask: (id: string, title: string) => Promise<void>;
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
-}) {
+  canEditPromisedDate: boolean;
+}) { 
   const [savingOwnerIds, setSavingOwnerIds] = useState<Set<string>>(() => new Set());
   const [savedOwnerIds, setSavedOwnerIds] = useState<Set<string>>(() => new Set());
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
@@ -2890,7 +2898,14 @@ const GroupedRows = React.memo(function GroupedRows({
                                 : "border-white/10 bg-white text-slate-900")
                             }
                             value={String(t.monthlyDay ?? 7)}
+                            disabled={!canEditPromisedDate}
+                            title={
+                              canEditPromisedDate
+                                ? ""
+                                : "Promised date is locked (only Kylie and Elton can update)."
+                            }
                             onChange={(e) => {
+                              if (!canEditPromisedDate) return;
                               const v = Number(e.target.value);
                               // Immediate UI update (then server sync)
                               setTasks((prev) =>
@@ -2973,7 +2988,17 @@ const GroupedRows = React.memo(function GroupedRows({
                     }
                     defaultValue={formatAuDate(t.dueAt)}
                     placeholder="DD/MM/YYYY"
+                    readOnly={!canEditPromisedDate}
+                    title={
+                      canEditPromisedDate
+                        ? ""
+                        : "Promised date is locked (only Kylie and Elton can update)."
+                    }
                     onBlur={(e) => {
+                      if (!canEditPromisedDate) {
+                        e.target.value = formatAuDate(t.dueAt);
+                        return;
+                      }
                       const raw = e.target.value;
                       if (!raw.trim()) {
                         void updateTask(t.id, { dueAt: null });

@@ -58,6 +58,22 @@ export async function PATCH(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const PROMISED_DATE_EDITORS = (process.env.PROMISED_DATE_EDITOR_EMAILS ?? "elton.bartel@jamieson.com.au,kylie.deane@jamieson.com.au")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+
+  const isPromisedDateFieldChange = body.dueAt !== undefined || body.monthlyDay !== undefined;
+  if (isPromisedDateFieldChange) {
+    const email = (user.email ?? "").trim().toLowerCase();
+    if (!email || !PROMISED_DATE_EDITORS.includes(email)) {
+      return NextResponse.json(
+        { error: "Only Kylie and Elton can update the Promised date." },
+        { status: 403 }
+      );
+    }
+  }
+
   // Only the task owner can change status
   if (body.status && body.status !== current.status) {
     if (!ownerMatchesUser(current.owner, user)) {
