@@ -262,17 +262,22 @@ export default function Home() {
   }, []);
 
   const kpiTasks = useMemo(() => {
-    if (!me || me.role === "MANAGER") return tasks;
+    const monthlyOnly = (xs: Task[]) =>
+      xs.filter((t) => (t.frequency ?? "").toLowerCase() === "monthly");
+
+    if (!me || me.role === "MANAGER") return monthlyOnly(tasks);
 
     const email = (me.email ?? "").trim().toLowerCase();
     const names = (me.ownerNames ?? []).map((x) => x.trim().toLowerCase()).filter(Boolean);
 
-    return tasks.filter((t) => {
-      const o = (t.owner ?? "").trim().toLowerCase();
-      if (!o) return false;
-      if (email && o === email) return true;
-      return names.includes(o);
-    });
+    return monthlyOnly(
+      tasks.filter((t) => {
+        const o = (t.owner ?? "").trim().toLowerCase();
+        if (!o) return false;
+        if (email && o === email) return true;
+        return names.includes(o);
+      })
+    );
   }, [tasks, me]);
 
   const kpis = useMemo(() => {
@@ -875,7 +880,7 @@ export default function Home() {
         <div>
           <div className="flex items-center justify-between gap-3">
             <div className="text-sm text-white/80">
-              KPIs (live){me?.role === "STAFF" ? " – your tasks" : ""}
+              KPIs (monthly tasks){me?.role === "STAFF" ? " – your tasks" : ""}
             </div>
             {me?.role === "MANAGER" ? (
               <a className="jam-btn h-9" href="/reports">
@@ -884,7 +889,7 @@ export default function Home() {
             ) : null}
           </div>
           <div className="mt-1 text-xs text-white/60">
-            Progress is based on budgeted hours vs completed hours.
+            Monthly tasks only. Progress is based on budgeted hours vs completed hours.
           </div>
         </div>
 
