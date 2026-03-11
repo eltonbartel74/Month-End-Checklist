@@ -80,6 +80,10 @@ export default function Home() {
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [filterText, setFilterText] = useState<string>("");
 
+  // Persisted UI prefs (filters + expand/collapse)
+  const [ownerAccordionOpen, setOwnerAccordionOpen] = useState<boolean>(false);
+  const [ownerAccordionExpanded, setOwnerAccordionExpanded] = useState<string[]>([]);
+
   // Bulk reassignment (visible tasks)
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkOwner, setBulkOwner] = useState("");
@@ -159,6 +163,27 @@ export default function Home() {
   useEffect(() => {
     void refresh();
 
+    // Restore persisted UI prefs (best-effort; may be reloaded once we know the user email)
+    try {
+      const raw = window.localStorage.getItem("monthend:prefs");
+      if (raw) {
+        const p = JSON.parse(raw) as {
+          filterOwner?: string;
+          filterStatus?: string;
+          filterText?: string;
+          ownerAccordionOpen?: boolean;
+          ownerAccordionExpanded?: string[];
+        };
+        if (typeof p.filterOwner === "string") setFilterOwner(p.filterOwner);
+        if (typeof p.filterStatus === "string") setFilterStatus(p.filterStatus);
+        if (typeof p.filterText === "string") setFilterText(p.filterText);
+        if (typeof p.ownerAccordionOpen === "boolean") setOwnerAccordionOpen(p.ownerAccordionOpen);
+        if (Array.isArray(p.ownerAccordionExpanded)) setOwnerAccordionExpanded(p.ownerAccordionExpanded.map(String));
+      }
+    } catch {
+      // ignore
+    }
+
     // Load current user (role + owner mappings) so we can scope KPIs for staff.
     (async () => {
       try {
@@ -182,6 +207,51 @@ export default function Home() {
       idleMs: 12 * 60 * 60 * 1000,
     });
   }, [sb]);
+
+  // If we have user identity, prefer restoring their saved prefs.
+  useEffect(() => {
+    if (!me?.email) return;
+    try {
+      const raw = window.localStorage.getItem(`monthend:prefs:${me.email.toLowerCase()}`);
+      if (!raw) return;
+      const p = JSON.parse(raw) as {
+        filterOwner?: string;
+        filterStatus?: string;
+        filterText?: string;
+        ownerAccordionOpen?: boolean;
+        ownerAccordionExpanded?: string[];
+      };
+      if (typeof p.filterOwner === "string") setFilterOwner(p.filterOwner);
+      if (typeof p.filterStatus === "string") setFilterStatus(p.filterStatus);
+      if (typeof p.filterText === "string") setFilterText(p.filterText);
+      if (typeof p.ownerAccordionOpen === "boolean") setOwnerAccordionOpen(p.ownerAccordionOpen);
+      if (Array.isArray(p.ownerAccordionExpanded)) setOwnerAccordionExpanded(p.ownerAccordionExpanded.map(String));
+    } catch {
+      // ignore
+    }
+  }, [me?.email]);
+
+  // Persist UI prefs (global per user on this device/browser)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const key = me?.email ? `monthend:prefs:${me.email.toLowerCase()}` : "monthend:prefs";
+    const payload = {
+      filterOwner,
+      filterStatus,
+      filterText,
+      ownerAccordionOpen,
+      ownerAccordionExpanded,
+    };
+
+    try {
+      window.localStorage.setItem(key, JSON.stringify(payload));
+      // Also keep a generic copy so we can restore before /api/auth/me resolves.
+      window.localStorage.setItem("monthend:prefs", JSON.stringify(payload));
+    } catch {
+      // ignore
+    }
+  }, [me, filterOwner, filterStatus, filterText, ownerAccordionOpen, ownerAccordionExpanded]);
 
   const [now, setNow] = useState(() => Date.now());
 
@@ -862,7 +932,14 @@ export default function Home() {
           {/* Progress % tile removed (redundant with progress ring) */}
         </div>
 
-        <OwnerAccordion tasks={tasks} period={period} />
+        <OwnerAccordion
+          tasks={tasks}
+          period={period}
+          open={ownerAccordionOpen}
+          onOpenChange={setOwnerAccordionOpen}
+          expandedOwners={ownerAccordionExpanded}
+          onExpandedOwnersChange={setOwnerAccordionExpanded}
+        />
       </div>
 
       <div className="rounded-md border border-white/10 bg-white/5 p-4">
@@ -1794,7 +1871,21 @@ function parseHoursMaybe(s: string | null) {
   return Number.isFinite(n) ? n : null;
 }
 
-function OwnerAccordion({ tasks, period }: { tasks: Task[]; period: string }) {
+function OwnerAccordion({
+  tasks,
+  period,
+  open,
+  onOpenChange,
+  expandedOwners,
+  onExpandedOwnersChange,
+}: {
+  tasks: Task[];
+  period: string;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  expandedOwners: string[];
+  onExpandedOwnersChange: (v: string[]) => void;
+}) {
   const bizDays = businessDaysInMonthSa(period);
 
   const rows = useMemo(() => {
@@ -1902,7 +1993,11 @@ function OwnerAccordion({ tasks, period }: { tasks: Task[]; period: string }) {
   );
 
   return (
-    <details className="mt-4 rounded border border-white/10 bg-black/10">
+    <details
+      className="mt-4 rounded border border-white/10 bg-black/10"
+      open={open}
+      onToggle={(e) => onOpenChange((e.currentTarget as HTMLDetailsElement).open)}
+    >
       <summary className="cursor-pointer list-none p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -1936,6 +2031,15 @@ function OwnerAccordion({ tasks, period }: { tasks: Task[]; period: string }) {
               <details
                 key={r.owner}
                 className="rounded border border-white/10 bg-black/10 px-3 py-2"
+                open={expandedOwners.includes(r.owner)}
+                onToggle={(e) => {
+                  const isOpen = (e.currentTarget as HTMLDetailsElement).open;
+                  onExpandedOwnersChange(
+                    isOpen
+                      ? Array.from(new Set([...expandedOwners, r.owner]))
+                      : expandedOwners.filter((x) => x !== r.owner)
+                  );
+                }}
               >
                 <summary className="cursor-pointer list-none">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
