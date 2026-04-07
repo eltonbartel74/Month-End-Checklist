@@ -58,7 +58,7 @@ export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
-  const [period, setPeriod] = useState("2026-02");
+  const [period, setPeriod] = useState("2026-03");
 
   // New task wizard
   type NewTaskType = "monthly" | "adhoc" | "weekly" | "daily";
